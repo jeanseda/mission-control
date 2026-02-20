@@ -518,24 +518,102 @@ function OverviewTab({ cronJobs, agents, projects, fitness, formatSchedule, form
 
 // Business Tab
 function BusinessTab({ projects }: { projects: Project[] }) {
-  const revenue = 0 // Coming soon
-  const clients = 0
-  const leads = 0
+  // Client data - will be dynamic later
+  const clients = [
+    {
+      id: 'maldo-distributors',
+      name: 'Maldo Distributors',
+      status: 'onboarding' as const,
+      owner: "Jean's brother-in-law",
+      location: 'Puerto Rico',
+      business: 'Wholesale distribution (gas stations & colmados)',
+      tier: 'Beta',
+      mrr: 0,
+      startDate: '2026-02-21',
+      features: ['DealBot', 'Product tracking', 'WhatsApp']
+    }
+  ]
+  
+  const totalMRR = clients.reduce((sum, c) => sum + c.mrr, 0)
+  const activeClients = clients.filter(c => c.status === 'active' || c.status === 'onboarding').length
+  const pipelineValue = 150 // Potential from current lead
+
+  const pricingTiers = [
+    { name: 'Friends & Family', price: 50, features: ['Full agent access', 'Beta testing', 'Direct support'] },
+    { name: 'Early Adopter', price: 150, features: ['Full agent access', 'Priority support', 'Custom integrations'] },
+    { name: 'Standard', price: 300, features: ['Full agent access', '24/7 support', 'All integrations', 'Custom training'] }
+  ]
 
   return (
     <div className="space-y-6">
       {/* Revenue Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon="💰" label="MRR" value={`$${revenue}`} subtext="monthly recurring" />
-        <StatCard icon="👥" label="Clients" value={clients} subtext="active" />
-        <StatCard icon="📥" label="Leads" value={leads} subtext="in pipeline" />
+        <StatCard icon="💰" label="MRR" value={`$${totalMRR}`} subtext="monthly recurring" />
+        <StatCard icon="👥" label="Clients" value={activeClients} subtext="onboarding" />
+        <StatCard icon="📥" label="Pipeline" value={`$${pipelineValue}`} subtext="potential MRR" />
         <StatCard icon="🎯" label="Goal" value="$10K" subtext="/month" />
+      </div>
+
+      {/* Active Clients */}
+      <div className="card">
+        <div className="card-header">
+          <span>👥</span> Clients
+        </div>
+        <div className="space-y-4">
+          {clients.map(client => (
+            <div key={client.id} className="item-row">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <p className="font-medium">{client.name}</p>
+                  <span className={`badge ${
+                    client.status === 'active' ? 'badge-success' : 
+                    client.status === 'onboarding' ? 'badge-warning' : 'badge-neutral'
+                  }`}>
+                    {client.status}
+                  </span>
+                  <span className="badge badge-neutral">{client.tier}</span>
+                </div>
+                <p className="text-sm text-zinc-500 mb-2">{client.business}</p>
+                <p className="text-sm text-zinc-600">📍 {client.location} • 👤 {client.owner}</p>
+                <div className="flex gap-2 mt-2">
+                  {client.features.map(f => (
+                    <span key={f} className="text-xs px-2 py-1 bg-zinc-800 rounded">{f}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold">${client.mrr}</p>
+                <p className="text-sm text-zinc-500">/month</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pricing Tiers */}
+      <div className="card">
+        <div className="card-header">
+          <span>💳</span> Pricing Tiers
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          {pricingTiers.map(tier => (
+            <div key={tier.name} className="p-4 bg-zinc-800/50 rounded-lg border border-zinc-700">
+              <p className="font-medium mb-1">{tier.name}</p>
+              <p className="text-2xl font-bold text-orange-500 mb-3">${tier.price}<span className="text-sm text-zinc-500">/mo</span></p>
+              <ul className="text-sm text-zinc-400 space-y-1">
+                {tier.features.map(f => (
+                  <li key={f}>✓ {f}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Projects Detail */}
       <div className="card">
         <div className="card-header">
-          <span>🚀</span> All Projects
+          <span>🚀</span> Projects
         </div>
         <div className="space-y-4">
           {projects.map(project => (
@@ -563,11 +641,22 @@ function BusinessTab({ projects }: { projects: Project[] }) {
         </div>
       </div>
 
-      {/* Coming Soon */}
-      <div className="card border-dashed border-zinc-700">
-        <div className="text-center py-8">
-          <p className="text-4xl mb-4">📊</p>
-          <p className="text-zinc-400">Revenue tracking & client management coming soon</p>
+      {/* Hardware */}
+      <div className="card">
+        <div className="card-header">
+          <span>🖥️</span> Infrastructure
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-4 bg-zinc-800/50 rounded-lg">
+            <p className="font-medium mb-2">💻 MacBook Pro</p>
+            <p className="text-sm text-zinc-400">Current host • Running OpenClaw</p>
+            <span className="badge badge-success mt-2">Active</span>
+          </div>
+          <div className="p-4 bg-zinc-800/50 rounded-lg border-dashed border border-zinc-600">
+            <p className="font-medium mb-2">🖥️ Mac Mini</p>
+            <p className="text-sm text-zinc-400">Arriving next week • Will host client agents</p>
+            <span className="badge badge-neutral mt-2">Pending</span>
+          </div>
         </div>
       </div>
     </div>
