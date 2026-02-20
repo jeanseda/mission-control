@@ -10,7 +10,7 @@ export interface KanbanTask {
   id: string
   title: string
   description?: string
-  status: 'backlog' | 'todo' | 'in_progress' | 'done'
+  status: 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'done'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   assignee?: string
   dueDate?: string
@@ -30,6 +30,7 @@ const columns: Array<{ id: KanbanTask['status']; title: string; icon: string; co
   { id: 'backlog', title: 'Backlog', icon: '📋', color: 'text-zinc-400' },
   { id: 'todo', title: 'To Do', icon: '📝', color: 'text-blue-400' },
   { id: 'in_progress', title: 'In Progress', icon: '🔄', color: 'text-amber-400' },
+  { id: 'blocked', title: 'Blocked', icon: '🚫', color: 'text-red-400' },
   { id: 'done', title: 'Done', icon: '✅', color: 'text-emerald-400' },
 ]
 

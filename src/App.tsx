@@ -836,6 +836,26 @@ function DocsTab({ documents, selectedDoc, onSelect, onClose }: {
     })
   }
 
+  // Simple markdown-ish rendering
+  const renderContent = (content: string) => {
+    return content.split('\n').map((line, i) => {
+      // Headers
+      if (line.startsWith('# ')) return <h1 key={i} className="text-2xl font-bold text-white mt-6 mb-3">{line.slice(2)}</h1>
+      if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold text-orange-400 mt-5 mb-2">{line.slice(3)}</h2>
+      if (line.startsWith('### ')) return <h3 key={i} className="text-lg font-semibold text-zinc-200 mt-4 mb-2">{line.slice(4)}</h3>
+      // List items
+      if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="ml-4 text-zinc-300">{line.slice(2)}</li>
+      // Blockquote
+      if (line.startsWith('> ')) return <blockquote key={i} className="border-l-4 border-orange-500 pl-4 italic text-zinc-400 my-2">{line.slice(2)}</blockquote>
+      // Code block markers
+      if (line.startsWith('```')) return <hr key={i} className="border-zinc-700 my-2" />
+      // Empty line
+      if (line.trim() === '') return <br key={i} />
+      // Regular text
+      return <p key={i} className="text-zinc-300 leading-relaxed">{line}</p>
+    })
+  }
+
   if (selectedDoc) {
     return (
       <div className="space-y-4">
@@ -856,17 +876,16 @@ function DocsTab({ documents, selectedDoc, onSelect, onClose }: {
               <p>{formatDate(selectedDoc.modified)}</p>
             </div>
           </div>
-          <div 
-            className="bg-zinc-800/50 rounded-xl p-6 overflow-x-auto max-h-[70vh] overflow-y-auto"
-            style={{ 
-              color: '#e4e4e7',
-              fontSize: '14px',
-              lineHeight: '1.7'
-            }}
-          >
-            <pre className="whitespace-pre-wrap font-mono" style={{ color: '#e4e4e7' }}>
-              {selectedDoc.content}
-            </pre>
+          <div className="bg-zinc-900/70 rounded-xl p-6 max-h-[70vh] overflow-y-auto">
+            {selectedDoc.name.endsWith('.json') ? (
+              <pre className="text-sm font-mono text-emerald-400 whitespace-pre-wrap">
+                {selectedDoc.content}
+              </pre>
+            ) : (
+              <div className="prose-custom">
+                {renderContent(selectedDoc.content)}
+              </div>
+            )}
           </div>
         </div>
       </div>
