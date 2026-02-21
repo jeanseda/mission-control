@@ -2,6 +2,46 @@
   "plan": "Max",
   "checks": [
     {
+      "timestamp": "2026-02-21T00:00:00-05:00",
+      "current_session": {
+        "percent_used": 2,
+        "resets_in": "4 hr 35 min"
+      },
+      "weekly_all_models": {
+        "percent_used": 23,
+        "resets": "Thu 1:00 PM"
+      },
+      "weekly_sonnet": {
+        "percent_used": 4,
+        "resets": "Thu 4:00 PM"
+      },
+      "rates_per_hour": {
+        "current_session": -16.33,
+        "weekly_all_models": 0.43,
+        "weekly_sonnet": 0.85
+      }
+    },
+    {
+      "timestamp": "2026-02-20T23:48:00-05:00",
+      "current_session": {
+        "percent_used": 51,
+        "resets_in": "10 min"
+      },
+      "weekly_all_models": {
+        "percent_used": 23,
+        "resets": "Thu 1:00 PM"
+      },
+      "weekly_sonnet": {
+        "percent_used": 4,
+        "resets": "Thu 4:00 PM"
+      },
+      "rates_per_hour": {
+        "current_session": 3.83,
+        "weekly_all_models": 0.43,
+        "weekly_sonnet": 0.85
+      }
+    },
+    {
       "timestamp": "2026-02-20T21:27:00-05:00",
       "current_session": {
         "percent_used": 42,
