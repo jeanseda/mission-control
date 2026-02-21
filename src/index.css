@@ -647,7 +647,7 @@ input::placeholder, textarea::placeholder {
    MODALS - Modern with backdrop blur
    ══════════════════════════════════════════════════════════════ */
 
-.modal-backdrop {
+.modal-backdrop, .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
@@ -671,6 +671,8 @@ input::placeholder, textarea::placeholder {
   padding: 28px;
   max-width: 520px;
   width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border);
   animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -685,6 +687,25 @@ input::placeholder, textarea::placeholder {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+.input {
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 4px var(--accent-glow);
 }
 
 /* ══════════════════════════════════════════════════════════════

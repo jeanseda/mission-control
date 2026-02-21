@@ -3,6 +3,7 @@ import { CalendarGrid } from './components/Calendar'
 import { KanbanBoard, AddTaskModal } from './components/Kanban'
 import { UsagePanel } from './components/Usage'
 import { ActivityFeed, QuickStats } from './components/ActivityFeed'
+import { Business } from './components/Business'
 import type { KanbanTask } from './components/Kanban'
 
 // Types
@@ -363,7 +364,7 @@ function App() {
       )}
       {activeTab === 'docs' && <DocsTab documents={documents} selectedDoc={selectedDoc} onSelect={loadDocument} onClose={() => setSelectedDoc(null)} />}
       {activeTab === 'tasks' && <TasksTab tasks={tasks} />}
-      {activeTab === 'business' && <BusinessTab projects={projects} />}
+      {activeTab === 'business' && <Business />}
       {activeTab === 'fitness' && <FitnessTab fitness={fitness} />}
       {activeTab === 'agents' && <AgentsTab agents={agents} cronJobs={cronJobs} formatSchedule={formatSchedule} />}
       {activeTab === 'usage' && <UsagePanel />}

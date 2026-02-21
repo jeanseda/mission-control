@@ -20,6 +20,7 @@ app.use(express.json())
 const DATA_DIR = join(__dirname, '../data')
 const TASKS_FILE = join(DATA_DIR, 'tasks.json')
 const BOARD_FILE = join(DATA_DIR, 'board.json')
+const BUSINESS_FILE = join(DATA_DIR, 'business-metrics.json')
 const WORKSPACE = process.env.OPENCLAW_WORKSPACE || '/Users/jeanseda/.openclaw/workspace'
 
 // Serve static files in production
@@ -397,6 +398,170 @@ app.delete('/api/board/:id', (req, res) => {
     res.json({ success: true })
   } catch (e) {
     res.status(500).json({ error: 'Failed to delete task' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════
+// BUSINESS INTELLIGENCE
+// ═══════════════════════════════════════════════════════════
+
+// Helper to read business metrics
+const readBusinessMetrics = () => {
+  if (!existsSync(BUSINESS_FILE)) {
+    const defaultData = {
+      goal: {
+        monthly_target: 10000,
+        current_month: new Date().toISOString().slice(0, 7),
+        mrr: 0,
+        one_time: 0,
+        total: 0,
+        progress_percent: 0
+      },
+      clients: [],
+      pipeline: [],
+      history: [],
+      alerts: [],
+      last_updated: new Date().toISOString()
+    }
+    writeFileSync(BUSINESS_FILE, JSON.stringify(defaultData, null, 2))
+    return defaultData
+  }
+  return JSON.parse(readFileSync(BUSINESS_FILE, 'utf-8'))
+}
+
+// Helper to write business metrics
+const writeBusinessMetrics = (data: any) => {
+  data.last_updated = new Date().toISOString()
+  writeFileSync(BUSINESS_FILE, JSON.stringify(data, null, 2))
+}
+
+// Helper to recalculate metrics
+const recalculateMetrics = (data: any) => {
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  
+  // Calculate MRR from active recurring clients
+  data.goal.mrr = data.clients
+    .filter((c: any) => c.type === 'recurring' && (c.status === 'active' || c.status === 'onboarding'))
+    .reduce((sum: number, c: any) => sum + c.mrr, 0)
+  
+  // Calculate one-time revenue for current month
+  data.goal.one_time = data.history
+    .filter((h: any) => h.date.startsWith(currentMonth) && h.type === 'one_time')
+    .reduce((sum: number, h: any) => sum + h.amount, 0)
+  
+  // Total for current month
+  data.goal.total = data.goal.mrr + data.goal.one_time
+  data.goal.current_month = currentMonth
+  data.goal.progress_percent = (data.goal.total / data.goal.monthly_target) * 100
+  
+  return data
+}
+
+// Get business metrics
+app.get('/api/business', (req, res) => {
+  try {
+    let data = readBusinessMetrics()
+    data = recalculateMetrics(data)
+    writeBusinessMetrics(data)
+    res.json(data)
+  } catch (e) {
+    console.error('Failed to get business metrics:', e)
+    res.status(500).json({ error: 'Failed to load business metrics' })
+  }
+})
+
+// Add or update client
+app.post('/api/business/client', (req, res) => {
+  try {
+    let data = readBusinessMetrics()
+    const client = {
+      id: req.body.id || `client-${Date.now()}`,
+      name: req.body.name,
+      status: req.body.status || 'onboarding',
+      type: req.body.type || 'recurring',
+      mrr: req.body.mrr || 0,
+      start_date: req.body.start_date || new Date().toISOString().split('T')[0],
+      last_contact: new Date().toISOString().split('T')[0],
+      health_score: 100,
+      notes: req.body.notes || '',
+      owner: req.body.owner || '',
+      location: req.body.location || '',
+      business: req.body.business || ''
+    }
+    
+    const existingIndex = data.clients.findIndex((c: any) => c.id === client.id)
+    if (existingIndex >= 0) {
+      data.clients[existingIndex] = { ...data.clients[existingIndex], ...client }
+    } else {
+      data.clients.push(client)
+    }
+    
+    data = recalculateMetrics(data)
+    writeBusinessMetrics(data)
+    res.json(client)
+  } catch (e) {
+    console.error('Failed to add client:', e)
+    res.status(500).json({ error: 'Failed to add client' })
+  }
+})
+
+// Add or update deal
+app.post('/api/business/deal', (req, res) => {
+  try {
+    let data = readBusinessMetrics()
+    const deal = {
+      id: req.body.id || `deal-${Date.now()}`,
+      name: req.body.name,
+      value: req.body.value,
+      stage: req.body.stage || 'lead',
+      probability: req.body.probability || 25,
+      expected_close: req.body.expected_close || '',
+      created_at: req.body.created_at || new Date().toISOString(),
+      notes: req.body.notes || ''
+    }
+    
+    const existingIndex = data.pipeline.findIndex((d: any) => d.id === deal.id)
+    if (existingIndex >= 0) {
+      data.pipeline[existingIndex] = { ...data.pipeline[existingIndex], ...deal }
+    } else {
+      data.pipeline.push(deal)
+    }
+    
+    writeBusinessMetrics(data)
+    res.json(deal)
+  } catch (e) {
+    console.error('Failed to add deal:', e)
+    res.status(500).json({ error: 'Failed to add deal' })
+  }
+})
+
+// Log revenue event
+app.post('/api/business/revenue', (req, res) => {
+  try {
+    let data = readBusinessMetrics()
+    const client = data.clients.find((c: any) => c.id === req.body.client_id)
+    
+    const revenueEvent = {
+      id: `revenue-${Date.now()}`,
+      date: req.body.date || new Date().toISOString().split('T')[0],
+      type: req.body.type || 'one_time',
+      amount: req.body.amount,
+      client_id: req.body.client_id,
+      client_name: client ? client.name : 'Unknown',
+      description: req.body.description
+    }
+    
+    data.history.unshift(revenueEvent)
+    
+    // Keep only last 100 events
+    data.history = data.history.slice(0, 100)
+    
+    data = recalculateMetrics(data)
+    writeBusinessMetrics(data)
+    res.json(revenueEvent)
+  } catch (e) {
+    console.error('Failed to log revenue:', e)
+    res.status(500).json({ error: 'Failed to log revenue' })
   }
 })
 
