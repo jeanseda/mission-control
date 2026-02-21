@@ -1,0 +1,145 @@
+[
+  {
+    "id": "11",
+    "title": "Launch Max para Maldo",
+    "description": "WhatsApp assistant for Maldo Distributors. Automated cron jobs configured: (1) Hourly usage monitoring with spike detection, (2) Daily price checks in silent mode (9 AM PR time) collecting baseline data on 10 assumed products. Launch scheduled 9 AM Feb 21 - welcome messages to Jorge & Karla.",
+    "status": "in_progress",
+    "priority": "high",
+    "project": "Maldo Distributors",
+    "tags": ["client", "launch", "automation"],
+    "dueDate": "2026-02-21",
+    "subtasks": [
+      {
+        "title": "Usage monitoring (hourly)",
+        "status": "done"
+      },
+      {
+        "title": "Price checking automation (daily)",
+        "status": "done"
+      },
+      {
+        "title": "ROI tracking system",
+        "status": "done"
+      },
+      {
+        "title": "Send welcome messages to Jorge & Karla",
+        "status": "pending",
+        "dueTime": "9:00 AM"
+      },
+      {
+        "title": "Get real product list from client",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "12",
+    "title": "WhatsApp 407 Migration",
+    "description": "Migrated Max to dedicated WhatsApp number 407-233-7708",
+    "status": "done",
+    "priority": "high",
+    "project": "OpenClaw",
+    "tags": ["whatsapp", "infrastructure"]
+  },
+  {
+    "id": "1",
+    "title": "Fix WhatsApp verification for DealBot",
+    "description": "US Mobile number +1 407 969 2183 needs SMS verification. Try TextNow as alternative.",
+    "status": "blocked",
+    "priority": "high",
+    "project": "DealBot",
+    "tags": ["dealbot", "blocker"]
+  },
+  {
+    "id": "2",
+    "title": "Connect Google Calendar",
+    "description": "Set up calendar integration - try iCal secret link approach since OAuth was problematic",
+    "status": "todo",
+    "priority": "high",
+    "project": "Integrations",
+    "tags": ["calendar", "integration"]
+  },
+  {
+    "id": "3",
+    "title": "Connect Email (Mail.app)",
+    "description": "AppleScript works but slow. Need to optimize or use IMAP directly.",
+    "status": "todo",
+    "priority": "medium",
+    "project": "Integrations",
+    "tags": ["email", "integration"]
+  },
+  {
+    "id": "4",
+    "title": "Agent Readiness Auditor MVP",
+    "description": "Build free audit checklist, reach out to 10 companies. Potential $5-7.5K quick win.",
+    "status": "todo",
+    "priority": "high",
+    "project": "AI Automation Biz",
+    "tags": ["business", "revenue"]
+  },
+  {
+    "id": "5",
+    "title": "Mission Control UI overhaul",
+    "description": "Better aesthetics, fix docs display, improve readability",
+    "status": "in_progress",
+    "priority": "high",
+    "project": "Mission Control",
+    "tags": ["dashboard", "ui"]
+  },
+  {
+    "id": "6",
+    "title": "Vic Onboarding Module 1",
+    "description": "Dad needs to complete first onboarding mission - explore what Max can do",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "Vic Missions",
+    "tags": ["vic", "onboarding"]
+  },
+  {
+    "id": "7",
+    "title": "Deploy Mission Control to Render",
+    "description": "Get dashboard accessible from anywhere",
+    "status": "done",
+    "priority": "high",
+    "project": "Mission Control",
+    "tags": ["dashboard", "deployment"],
+    "dueDate": "2026-02-20"
+  },
+  {
+    "id": "8",
+    "title": "Set up heartbeat system",
+    "description": "Morning briefs, usage tracking, proactive checks",
+    "status": "done",
+    "priority": "high",
+    "project": "OpenClaw",
+    "tags": ["automation"]
+  },
+  {
+    "id": "9",
+    "title": "Research AI business opportunities",
+    "description": "Identify quick wins for $10K/month goal",
+    "status": "done",
+    "priority": "high",
+    "project": "AI Automation Biz",
+    "tags": ["research", "business"]
+  },
+  {
+    "id": "10",
+    "title": "Fix broken cron jobs",
+    "description": "Fitness agent jobs were failing - fixed delivery targets",
+    "status": "done",
+    "priority": "medium",
+    "project": "OpenClaw",
+    "tags": ["maintenance"]
+  },
+  {
+    "id": "13",
+    "title": "Claude usage optimization & monitoring",
+    "description": "Automated hourly usage checks with spike detection (>10%/hr alerts, >20%/3hr acceleration alerts, >80% threshold warnings). Currently using ~22% weekly. Maldo automation configured to use ~10% weekly. Goal: maximize value from Max plan subscription.",
+    "status": "done",
+    "priority": "high",
+    "project": "OpenClaw",
+    "tags": ["optimization", "monitoring"],
+    "completedDate": "2026-02-20"
+  }
+]
