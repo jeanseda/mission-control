@@ -160,21 +160,23 @@ app.get('/api/documents', (req, res) => {
       }
     }
 
-    // Add memory files
+    // Add memory files (all of them, we'll limit after sorting)
     const memoryDir = join(WORKSPACE, 'memory')
     if (existsSync(memoryDir)) {
       const memoryFiles = readdirSync(memoryDir).filter(f => f.endsWith('.md') || f.endsWith('.json'))
-      for (const file of memoryFiles.slice(-10)) { // Last 10 memory files
+      for (const file of memoryFiles) {
         const fullPath = join(memoryDir, file)
-        const stat = statSync(fullPath)
-        docs.push({
-          name: file,
-          path: `memory/${file}`,
-          type: extname(file) === '.md' ? 'markdown' : 'json',
-          size: stat.size,
-          modified: stat.mtime.toISOString(),
-          category: 'Memory'
-        })
+        if (existsSync(fullPath)) {
+          const stat = statSync(fullPath)
+          docs.push({
+            name: file,
+            path: `memory/${file}`,
+            type: extname(file) === '.md' ? 'markdown' : 'json',
+            size: stat.size,
+            modified: stat.mtime.toISOString(),
+            category: 'Memory'
+          })
+        }
       }
     }
 
@@ -202,10 +204,11 @@ app.get('/api/documents', (req, res) => {
       }
     }
 
-    // Sort by modified date descending
+    // Sort by modified date descending and limit to 50 most recent
     docs.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
+    const recentDocs = docs.slice(0, 50)
     
-    res.json(docs)
+    res.json(recentDocs)
   } catch (e) {
     console.error('Failed to get documents:', e)
     res.json([])
