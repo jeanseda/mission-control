@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { CalendarGrid } from './components/Calendar'
 import { KanbanBoard, AddTaskModal } from './components/Kanban'
 import { UsagePanel } from './components/Usage'
+import { ActivityFeed, QuickStats } from './components/ActivityFeed'
 import type { KanbanTask } from './components/Kanban'
 
 // Types
@@ -398,12 +399,67 @@ function OverviewTab({ cronJobs, agents, projects, fitness, formatSchedule, form
 
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon="⚡" label="Cron Jobs" value={activeJobs} subtext={`${cronJobs.length} total`} />
-        <StatCard icon="🤖" label="Agents" value={activeAgents} subtext="running" />
-        <StatCard icon="🚀" label="Projects" value={activeProjects} subtext="in progress" />
-        <StatCard icon="🏋️" label="Weight" value={`${fitness.weight}`} subtext={fitness.phase} unit="lbs" />
+      {/* Quick Stats - Auto-updating */}
+      <QuickStats />
+
+      {/* Activity Feed - Real-time updates */}
+      <div className="grid md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <ActivityFeed limit={15} />
+        </div>
+        
+        {/* System Health Quick View */}
+        <div className="space-y-6">
+          <div className="card">
+            <div className="card-header">
+              <span>💚</span> System Health
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex items-center gap-2">
+                  <div className="status-dot success" />
+                  <span className="text-sm font-semibold">Agents</span>
+                </div>
+                <span className="text-emerald-400 font-bold">{activeAgents}/{agents.length}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <div className="flex items-center gap-2">
+                  <div className="status-dot success" />
+                  <span className="text-sm font-semibold">Cron Jobs</span>
+                </div>
+                <span className="text-blue-400 font-bold">{activeJobs}/{cronJobs.length}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                <div className="flex items-center gap-2">
+                  <div className="status-dot success" />
+                  <span className="text-sm font-semibold">Projects</span>
+                </div>
+                <span className="text-orange-400 font-bold">{activeProjects}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Fitness Quick View */}
+          <div className="card">
+            <div className="card-header">
+              <span>💪</span> Fitness
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Weight</span>
+                <span className="font-bold">{fitness.weight} lbs</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Body Fat</span>
+                <span className="font-bold">{fitness.bodyFat}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">Phase</span>
+                <span className="badge badge-success text-xs">{fitness.phase}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main Grid */}

@@ -17,16 +17,19 @@ const isProduction = process.env.NODE_ENV === 'production'
 app.use(cors())
 app.use(express.json())
 
+const DATA_DIR = join(__dirname, '../data')
+const TASKS_FILE = join(DATA_DIR, 'tasks.json')
+const BOARD_FILE = join(DATA_DIR, 'board.json')
+const WORKSPACE = process.env.OPENCLAW_WORKSPACE || '/Users/jeanseda/.openclaw/workspace'
+
 // Serve static files in production
 if (isProduction) {
   const distPath = join(__dirname, '../dist')
   app.use(express.static(distPath))
 }
 
-const DATA_DIR = join(__dirname, '../data')
-const TASKS_FILE = join(DATA_DIR, 'tasks.json')
-const BOARD_FILE = join(DATA_DIR, 'board.json')
-const WORKSPACE = process.env.OPENCLAW_WORKSPACE || '/Users/jeanseda/.openclaw/workspace'
+// Serve data files (for claude-usage.json, etc.)
+app.use('/data', express.static(DATA_DIR))
 
 // Ensure data directory exists
 if (!existsSync(DATA_DIR)) {
