@@ -592,6 +592,46 @@ app.post('/api/business/revenue', (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════
+// USAGE STATS (Claude usage from public/data/claude-usage.json)
+// ═══════════════════════════════════════════════════════════
+
+app.get('/api/usage', (req, res) => {
+  try {
+    const usageFile = join(__dirname, '../public/data/claude-usage.json')
+    if (!existsSync(usageFile)) {
+      return res.json({
+        plan: 'Max',
+        current_session: { percent_used: 0, resets_in: 'Unknown' },
+        weekly_all_models: { percent_used: 0, resets: 'Unknown' },
+        weekly_sonnet: { percent_used: 0, resets: 'Unknown' },
+        lastUpdated: new Date().toISOString()
+      })
+    }
+    
+    const usage = JSON.parse(readFileSync(usageFile, 'utf-8'))
+    const latest = usage.checks && usage.checks.length > 0 ? usage.checks[0] : null
+    
+    res.json({
+      plan: usage.plan || 'Max',
+      current_session: latest?.current_session || { percent_used: 0, resets_in: 'Unknown' },
+      weekly_all_models: latest?.weekly_all_models || { percent_used: 0, resets: 'Unknown' },
+      weekly_sonnet: latest?.weekly_sonnet || { percent_used: 0, resets: 'Unknown' },
+      lastUpdated: latest?.timestamp || new Date().toISOString(),
+      alerts: usage.alerts || null
+    })
+  } catch (e) {
+    console.error('Failed to get usage:', e)
+    res.json({
+      plan: 'Max',
+      current_session: { percent_used: 0, resets_in: 'Unknown' },
+      weekly_all_models: { percent_used: 0, resets: 'Unknown' },
+      weekly_sonnet: { percent_used: 0, resets: 'Unknown' },
+      lastUpdated: new Date().toISOString()
+    })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════
 // HEALTH CHECK
 // ═══════════════════════════════════════════════════════════
 

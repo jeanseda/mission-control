@@ -1,0 +1,55 @@
+{
+  "goal": {
+    "monthly_target": 10000,
+    "current_month": "2026-02",
+    "mrr": 0,
+    "one_time": 0,
+    "total": 0,
+    "progress_percent": 0.0
+  },
+  "clients": [
+    {
+      "id": "maldo-distributors",
+      "name": "Maldo Distributors",
+      "status": "onboarding",
+      "type": "recurring",
+      "mrr": 0,
+      "start_date": "2026-02-21",
+      "last_contact": "2026-02-20",
+      "health_score": 95,
+      "notes": "WhatsApp assistant launch scheduled 9 AM Feb 21",
+      "owner": "Jean's brother-in-law",
+      "location": "Puerto Rico",
+      "business": "Wholesale distribution"
+    }
+  ],
+  "pipeline": [],
+  "history": [],
+  "alerts": [
+    {
+      "id": "leads-1771646216",
+      "type": "leads",
+      "severity": "info",
+      "message": "\u2139\ufe0f No new leads added in the last 7 days",
+      "created_at": "2026-02-20T22:56:56.682500",
+      "resolved": false
+    },
+    {
+      "id": "revenue-1771646216",
+      "type": "revenue",
+      "severity": "warning",
+      "message": "\ud83d\udcb0 Revenue trending below target: $0/$10000 (0.0% vs expected 71.4%)",
+      "created_at": "2026-02-20T22:56:56.682528",
+      "resolved": false
+    },
+    {
+      "id": "revenue-1771678943",
+      "type": "revenue",
+      "severity": "warning",
+      "message": "\ud83d\udcb0 Revenue trending below target: $0/$10000 (0.0% vs expected 75.0%)",
+      "created_at": "2026-02-21T08:02:23.112311",
+      "resolved": false
+    }
+  ],
+  "last_updated": "2026-02-21T08:02:23.112315"
+}

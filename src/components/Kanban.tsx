@@ -11,13 +11,14 @@ export interface KanbanTask {
   title: string
   description?: string
   status: 'backlog' | 'todo' | 'in_progress' | 'blocked' | 'done'
-  priority: 'low' | 'medium' | 'high' | 'urgent'
+  priority?: 'low' | 'medium' | 'high' | 'critical'
   assignee?: string
   dueDate?: string
   tags?: string[]
   subtasks?: KanbanSubtask[]
   project?: string
-  createdAt?: string
+  createdDate?: string
+  completedDate?: string
 }
 
 interface Props {
@@ -35,17 +36,17 @@ const columns: Array<{ id: KanbanTask['status']; title: string; icon: string; co
 ]
 
 const priorityConfig = {
-  low: { bg: 'bg-zinc-500/15', text: 'text-zinc-400', border: 'border-l-zinc-500' },
-  medium: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-l-blue-500' },
-  high: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-l-amber-500' },
-  urgent: { bg: 'bg-red-500/15', text: 'text-red-400', border: 'border-l-red-500' },
+  low: { bg: 'bg-zinc-500/15', text: 'text-zinc-400', border: 'priority-low' },
+  medium: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'priority-medium' },
+  high: { bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'priority-high' },
+  critical: { bg: 'bg-red-500/15', text: 'text-red-400', border: 'priority-critical' },
 }
 
 const priorityLabels = {
   low: 'Low',
   medium: 'Medium', 
   high: 'High',
-  urgent: '🔥 Urgent',
+  critical: '🔥 Critical',
 }
 
 export function KanbanBoard({ tasks, onTaskMove, onTaskClick }: Props) {
@@ -337,7 +338,7 @@ export function AddTaskModal({
                 <option value="low">🟢 Low</option>
                 <option value="medium">🔵 Medium</option>
                 <option value="high">🟠 High</option>
-                <option value="urgent">🔴 Urgent</option>
+                <option value="critical">🔴 Critical</option>
               </select>
             </div>
           </div>
