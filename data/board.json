@@ -220,5 +220,19 @@
       "automation"
     ],
     "dueDate": "2026-02-21"
+  },
+  {
+    "id": "16",
+    "title": "Add workflow orchestration rules to Max",
+    "description": "Updated SOUL.md with engineering best practices: plan mode default, subagent strategy, self-improvement loop, verification requirements, elegance standards, and autonomous bug fixing. Created tasks/lessons.md and tasks/todo.md for tracking.",
+    "status": "done",
+    "priority": "high",
+    "project": "Maldo Distributors",
+    "tags": [
+      "agent",
+      "workflow",
+      "best-practices"
+    ],
+    "completedDate": "2026-02-20"
   }
 ]
