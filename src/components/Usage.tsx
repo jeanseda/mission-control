@@ -59,6 +59,7 @@ export function UsagePanel() {
   const [usage, setUsage] = useState<UsageData | null>(null)
   const [claudeUsage, setClaudeUsage] = useState<ClaudeUsageData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [lastUpdate, setLastUpdate] = useState(new Date().toISOString())
 
   useEffect(() => {
     loadUsage()
@@ -83,6 +84,8 @@ export function UsagePanel() {
       } catch (e) {
         console.log('Claude usage file not available:', e)
       }
+      
+      setLastUpdate(new Date().toISOString())
     } catch (e) {
       console.error('Failed to load usage:', e)
     } finally {
@@ -103,6 +106,28 @@ export function UsagePanel() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const formatTimeAgo = (iso: string) => {
+    const now = new Date()
+    const then = new Date(iso)
+    const diffMs = now.getTime() - then.getTime()
+    const diffSecs = Math.floor(diffMs / 1000)
+    const diffMins = Math.floor(diffMs / 60000)
+
+    if (diffSecs < 10) return 'just now'
+    if (diffSecs < 60) return `${diffSecs}s ago`
+    if (diffMins < 60) return `${diffMins}m ago`
+    return `${Math.floor(diffMins / 60)}h ago`
+  }
+
+  const getFreshnessStatus = (iso: string) => {
+    const diffMs = new Date().getTime() - new Date(iso).getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    
+    if (diffMins < 5) return 'success'
+    if (diffMins < 60) return 'warning'
+    return 'danger'
   }
 
   if (loading) {
@@ -130,6 +155,16 @@ export function UsagePanel() {
 
   return (
     <div className="space-y-6">
+      {/* Last Update Indicator */}
+      <div className="flex items-center justify-between px-2">
+        <h2 className="text-2xl font-bold">Usage & Metrics</h2>
+        <div className="flex items-center gap-2">
+          <div className={`status-dot ${getFreshnessStatus(lastUpdate)}`} />
+          <span className="text-xs text-zinc-500">
+            Updated {formatTimeAgo(lastUpdate)}
+          </span>
+        </div>
+      </div>
       {/* Claude Max Plan - Hero Card */}
       <div className="card accent-border">
         <div className="flex items-center justify-between mb-6">

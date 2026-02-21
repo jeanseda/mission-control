@@ -61,10 +61,13 @@ app.get('/api/cron', async (req, res) => {
   try {
     const { stdout } = await execAsync('openclaw cron list --json 2>/dev/null || echo "[]"')
     const jobs = JSON.parse(stdout.trim() || '[]')
-    res.json(jobs)
+    res.json({
+      jobs: Array.isArray(jobs) ? jobs : (jobs?.jobs || []),
+      lastUpdated: new Date().toISOString()
+    })
   } catch (e) {
     console.error('Failed to get cron jobs:', e)
-    res.json([])
+    res.json({ jobs: [], lastUpdated: new Date().toISOString() })
   }
 })
 
@@ -113,7 +116,10 @@ app.get('/api/calendar', async (req, res) => {
     // Sort by time
     events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
     
-    res.json(events)
+    res.json({
+      events,
+      lastUpdated: new Date().toISOString()
+    })
   } catch (e) {
     console.error('Failed to get calendar:', e)
     res.json([])
@@ -215,7 +221,10 @@ app.get('/api/documents', (req, res) => {
     docs.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
     const recentDocs = docs.slice(0, 50)
     
-    res.json(recentDocs)
+    res.json({
+      documents: recentDocs,
+      lastUpdated: new Date().toISOString()
+    })
   } catch (e) {
     console.error('Failed to get documents:', e)
     res.json([])
@@ -288,7 +297,10 @@ app.get('/api/tasks', async (req, res) => {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 50) // Last 50
     
-    res.json(allTasks)
+    res.json({
+      tasks: allTasks,
+      lastUpdated: new Date().toISOString()
+    })
   } catch (e) {
     console.error('Failed to get tasks:', e)
     res.json([])
@@ -365,9 +377,12 @@ app.get('/api/projects', (req, res) => {
 app.get('/api/board', (req, res) => {
   try {
     const board = JSON.parse(readFileSync(BOARD_FILE, 'utf-8'))
-    res.json(board)
+    res.json({
+      tasks: board,
+      lastUpdated: new Date().toISOString()
+    })
   } catch (e) {
-    res.json([])
+    res.json({ tasks: [], lastUpdated: new Date().toISOString() })
   }
 })
 
