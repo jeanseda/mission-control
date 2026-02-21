@@ -262,5 +262,19 @@
       "production"
     ],
     "completedDate": "2026-02-21"
+  },
+  {
+    "id": "19",
+    "title": "Switch usage monitoring to managed browser",
+    "description": "Current Chrome extension relay requires manual tab clicking. Switch to OpenClaw managed browser for full automation. Requires: gateway restart + one-time Claude login, then zero human involvement forever.",
+    "status": "blocked",
+    "priority": "medium",
+    "project": "Infrastructure",
+    "tags": [
+      "automation",
+      "browser",
+      "requires-human"
+    ],
+    "blockedReason": "Gateway token mismatch - needs restart"
   }
 ]
