@@ -248,5 +248,19 @@
       "workflow"
     ],
     "completedDate": "2026-02-20"
+  },
+  {
+    "id": "18",
+    "title": "Fix docs display on production",
+    "description": "Docs tab was empty on Render because workspace files aren't synced. Added graceful degradation: shows friendly empty state on prod, works fully on localhost.",
+    "status": "done",
+    "priority": "medium",
+    "project": "Mission Control",
+    "tags": [
+      "bugfix",
+      "ui",
+      "production"
+    ],
+    "completedDate": "2026-02-21"
   }
 ]
