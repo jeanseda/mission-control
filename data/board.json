@@ -6,7 +6,11 @@
     "status": "in_progress",
     "priority": "high",
     "project": "Maldo Distributors",
-    "tags": ["client", "launch", "automation"],
+    "tags": [
+      "client",
+      "launch",
+      "automation"
+    ],
     "dueDate": "2026-02-21",
     "subtasks": [
       {
@@ -39,7 +43,10 @@
     "status": "done",
     "priority": "high",
     "project": "OpenClaw",
-    "tags": ["whatsapp", "infrastructure"]
+    "tags": [
+      "whatsapp",
+      "infrastructure"
+    ]
   },
   {
     "id": "1",
@@ -48,7 +55,10 @@
     "status": "blocked",
     "priority": "high",
     "project": "DealBot",
-    "tags": ["dealbot", "blocker"]
+    "tags": [
+      "dealbot",
+      "blocker"
+    ]
   },
   {
     "id": "2",
@@ -57,7 +67,10 @@
     "status": "todo",
     "priority": "high",
     "project": "Integrations",
-    "tags": ["calendar", "integration"]
+    "tags": [
+      "calendar",
+      "integration"
+    ]
   },
   {
     "id": "3",
@@ -66,7 +79,10 @@
     "status": "todo",
     "priority": "medium",
     "project": "Integrations",
-    "tags": ["email", "integration"]
+    "tags": [
+      "email",
+      "integration"
+    ]
   },
   {
     "id": "4",
@@ -75,7 +91,10 @@
     "status": "todo",
     "priority": "high",
     "project": "AI Automation Biz",
-    "tags": ["business", "revenue"]
+    "tags": [
+      "business",
+      "revenue"
+    ]
   },
   {
     "id": "5",
@@ -84,7 +103,10 @@
     "status": "in_progress",
     "priority": "high",
     "project": "Mission Control",
-    "tags": ["dashboard", "ui"]
+    "tags": [
+      "dashboard",
+      "ui"
+    ]
   },
   {
     "id": "6",
@@ -93,7 +115,10 @@
     "status": "in_progress",
     "priority": "medium",
     "project": "Vic Missions",
-    "tags": ["vic", "onboarding"]
+    "tags": [
+      "vic",
+      "onboarding"
+    ]
   },
   {
     "id": "7",
@@ -102,7 +127,10 @@
     "status": "done",
     "priority": "high",
     "project": "Mission Control",
-    "tags": ["dashboard", "deployment"],
+    "tags": [
+      "dashboard",
+      "deployment"
+    ],
     "dueDate": "2026-02-20"
   },
   {
@@ -112,7 +140,9 @@
     "status": "done",
     "priority": "high",
     "project": "OpenClaw",
-    "tags": ["automation"]
+    "tags": [
+      "automation"
+    ]
   },
   {
     "id": "9",
@@ -121,7 +151,10 @@
     "status": "done",
     "priority": "high",
     "project": "AI Automation Biz",
-    "tags": ["research", "business"]
+    "tags": [
+      "research",
+      "business"
+    ]
   },
   {
     "id": "10",
@@ -130,7 +163,9 @@
     "status": "done",
     "priority": "medium",
     "project": "OpenClaw",
-    "tags": ["maintenance"]
+    "tags": [
+      "maintenance"
+    ]
   },
   {
     "id": "13",
@@ -139,7 +174,10 @@
     "status": "done",
     "priority": "high",
     "project": "OpenClaw",
-    "tags": ["optimization", "monitoring"],
+    "tags": [
+      "optimization",
+      "monitoring"
+    ],
     "completedDate": "2026-02-20"
   },
   {
@@ -149,7 +187,38 @@
     "status": "done",
     "priority": "medium",
     "project": "Mission Control",
-    "tags": ["dashboard", "bugfix"],
+    "tags": [
+      "dashboard",
+      "bugfix"
+    ],
     "completedDate": "2026-02-20"
+  },
+  {
+    "id": "15",
+    "title": "Fix cron job errors",
+    "description": "Three jobs showing errors: (1) Fitness Morning Brief - delivery format ambiguous, (2) Claude Usage Monitor - cron announce delivery failed, (3) Vic Friday Deadline - timeout (60s limit). Need to diagnose and repair.",
+    "status": "todo",
+    "priority": "high",
+    "project": "OpenClaw",
+    "tags": [
+      "maintenance",
+      "cron",
+      "bugfix"
+    ],
+    "dueDate": "2026-02-22"
+  },
+  {
+    "id": "15",
+    "title": "Setup GitHub Workspace Backup",
+    "description": "Automated daily backup of workspace to private GitHub repo. Scripts ready, waiting for: 1) Create private repo, 2) Run setup script, 3) Enable cron job. Protects client data with disaster recovery.",
+    "status": "todo",
+    "priority": "high",
+    "project": "Infrastructure",
+    "tags": [
+      "security",
+      "backup",
+      "automation"
+    ],
+    "dueDate": "2026-02-21"
   }
 ]
