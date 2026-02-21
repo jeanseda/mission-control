@@ -141,5 +141,15 @@
     "project": "OpenClaw",
     "tags": ["optimization", "monitoring"],
     "completedDate": "2026-02-20"
+  },
+  {
+    "id": "14",
+    "title": "Dashboard fixes: Usage display + Recent docs",
+    "description": "Fixed Claude usage not showing (added public/data sync) and docs not showing latest files (sorted ALL files by date, not just last 10). Auto-sync script runs hourly with usage cron job.",
+    "status": "done",
+    "priority": "medium",
+    "project": "Mission Control",
+    "tags": ["dashboard", "bugfix"],
+    "completedDate": "2026-02-20"
   }
 ]
