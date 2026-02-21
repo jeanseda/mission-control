@@ -1,0 +1,31 @@
+{
+  "plan": "Max",
+  "checks": [
+    {
+      "timestamp": "2026-02-20T21:27:00-05:00",
+      "current_session": {
+        "percent_used": 42,
+        "resets_in": "2 hr 14 min"
+      },
+      "weekly_all_models": {
+        "percent_used": 22,
+        "resets": "Thu 1:00 PM"
+      },
+      "weekly_sonnet": {
+        "percent_used": 2,
+        "resets": "Thu 4:00 PM"
+      }
+    }
+  ],
+  "alerts": {
+    "threshold_percent": 80,
+    "spike_threshold_per_hour": 10,
+    "last_alert": null
+  },
+  "rate_tracking": {
+    "enabled": true,
+    "lookback_hours": 3,
+    "notes": "Alert if usage increases >10% in 1 hour, or >20% in 3 hours"
+  },
+  "notes": "Auto-monitored from https://claude.ai/settings/usage with spike detection"
+}
