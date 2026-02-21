@@ -27,7 +27,7 @@
       },
       {
         "title": "Send welcome messages to Jorge & Karla",
-        "status": "pending",
+        "status": "done",
         "dueTime": "9:00 AM"
       },
       {
@@ -208,7 +208,7 @@
     "dueDate": "2026-02-22"
   },
   {
-    "id": "15",
+    "id": "18",
     "title": "Setup GitHub Workspace Backup",
     "description": "Automated daily backup of workspace to private GitHub repo. Scripts ready, waiting for: 1) Create private repo, 2) Run setup script, 3) Enable cron job. Protects client data with disaster recovery.",
     "status": "todo",
