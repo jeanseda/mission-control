@@ -1038,6 +1038,23 @@ function DocsTab({ documents, selectedDoc, onSelect, onClose }: {
     )
   }
 
+  // Show empty state if no documents
+  if (documents.length === 0) {
+    return (
+      <div className="card text-center py-12">
+        <div className="text-6xl mb-4">📄</div>
+        <h3 className="text-xl font-semibold mb-2">No Documents Available</h3>
+        <p className="text-zinc-400 max-w-md mx-auto">
+          Workspace documents are only available when running locally. 
+          On production deployments, docs are not synced for security.
+        </p>
+        <p className="text-sm text-zinc-500 mt-4">
+          Run <code className="bg-zinc-800 px-2 py-1 rounded">npm run dev</code> locally to view workspace files.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {Object.entries(grouped).map(([category, docs]) => (

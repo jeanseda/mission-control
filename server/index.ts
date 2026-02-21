@@ -126,6 +126,12 @@ app.get('/api/calendar', async (req, res) => {
 
 app.get('/api/documents', (req, res) => {
   try {
+    // Check if workspace exists (might not on production)
+    if (!existsSync(WORKSPACE)) {
+      console.log('Workspace not found at:', WORKSPACE)
+      return res.json([])
+    }
+
     const docs: Array<{
       name: string
       path: string
@@ -219,6 +225,11 @@ app.get('/api/documents', (req, res) => {
 // Read a specific document
 app.get('/api/documents/:path(*)', (req, res) => {
   try {
+    // Check if workspace exists
+    if (!existsSync(WORKSPACE)) {
+      return res.status(404).json({ error: 'Workspace not available' })
+    }
+
     const docPath = req.params.path
     const fullPath = join(WORKSPACE, docPath)
     
