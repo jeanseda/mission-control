@@ -1,9 +1,24 @@
 [
   {
+    "id": "20",
+    "title": "Gateway Token Mismatch (RESOLVED)",
+    "description": "Gateway was returning 'unauthorized: device token mismatch' error blocking all automation. Successfully resolved via gateway restart at ~3 AM Feb 21. Token rotation completed. System back online, but some cron jobs now showing different errors (see Task #15).",
+    "status": "done",
+    "priority": "critical",
+    "project": "Infrastructure",
+    "tags": [
+      "blocker",
+      "gateway",
+      "security"
+    ],
+    "createdDate": "2026-02-21",
+    "completedDate": "2026-02-21"
+  },
+  {
     "id": "11",
     "title": "Launch Max para Maldo",
-    "description": "WhatsApp assistant for Maldo Distributors. Automated cron jobs configured: (1) Hourly usage monitoring with spike detection, (2) Daily price checks in silent mode (9 AM PR time) collecting baseline data on 10 assumed products. Launch scheduled 9 AM Feb 21 - welcome messages to Jorge & Karla.",
-    "status": "in_progress",
+    "description": "WhatsApp assistant for Maldo Distributors. Automated cron jobs configured: (1) Hourly usage monitoring with spike detection, (2) Daily price checks in silent mode (9 AM PR time) collecting baseline data on 10 assumed products. Launch completed Feb 21 9 AM - welcome messages sent to Jorge & Karla. Next: get real product list from client.",
+    "status": "done",
     "priority": "high",
     "project": "Maldo Distributors",
     "tags": [
@@ -12,6 +27,7 @@
       "automation"
     ],
     "dueDate": "2026-02-21",
+    "completedDate": "2026-02-21",
     "subtasks": [
       {
         "title": "Usage monitoring (hourly)",
@@ -195,15 +211,16 @@
   },
   {
     "id": "15",
-    "title": "Fix cron job errors",
-    "description": "Three jobs showing errors: (1) Fitness Morning Brief - delivery format ambiguous, (2) Claude Usage Monitor - cron announce delivery failed, (3) Vic Friday Deadline - timeout (60s limit). Need to diagnose and repair.",
+    "title": "Fix Discord 401 Unauthorized errors",
+    "description": "Multiple cron jobs failing with '401: Unauthorized' Discord errors: Morning Brief, Usage Check Reminder, Fitness Morning Brief, Vic Saturday Escalation. Also: Maldo Daily Price Check (delivery failed), Autonomous Work 2AM (Discord bot token missing), Autonomous Work 5AM (timeout). Likely Discord integration issue - may need bot token refresh or config update.",
     "status": "todo",
-    "priority": "high",
+    "priority": "critical",
     "project": "OpenClaw",
     "tags": [
       "maintenance",
       "cron",
-      "bugfix"
+      "bugfix",
+      "discord"
     ],
     "dueDate": "2026-02-22"
   },
@@ -266,15 +283,14 @@
   {
     "id": "19",
     "title": "Switch usage monitoring to managed browser",
-    "description": "Current Chrome extension relay requires manual tab clicking. Switch to OpenClaw managed browser for full automation. Requires: gateway restart + one-time Claude login, then zero human involvement forever.",
-    "status": "blocked",
+    "description": "Current Chrome extension relay requires manual tab clicking. Switch to OpenClaw managed browser for full automation. Gateway restarted ✅. Next: one-time Claude login via managed browser, then usage monitoring becomes fully autonomous forever.",
+    "status": "todo",
     "priority": "medium",
     "project": "Infrastructure",
     "tags": [
       "automation",
       "browser",
       "requires-human"
-    ],
-    "blockedReason": "Gateway token mismatch - needs restart"
+    ]
   }
 ]

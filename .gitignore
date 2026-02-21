@@ -6,7 +6,9 @@ dist/
 dist-server/
 
 # Local data (not for production)
-data/
+data/*
+!data/board.json
+!data/business-metrics.json
 
 # Environment
 .env
