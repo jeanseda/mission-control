@@ -234,5 +234,19 @@
       "best-practices"
     ],
     "completedDate": "2026-02-20"
+  },
+  {
+    "id": "17",
+    "title": "Apply engineering rules to main agent + create global standards",
+    "description": "Created ENGINEERING.md as single source of truth for all agents. Both main and Maldo now reference it. Added tasks/ directory with lessons.md and todo.md for main agent tracking.",
+    "status": "done",
+    "priority": "high",
+    "project": "Infrastructure",
+    "tags": [
+      "engineering",
+      "standards",
+      "workflow"
+    ],
+    "completedDate": "2026-02-20"
   }
 ]
