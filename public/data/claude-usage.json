@@ -2,13 +2,13 @@
   "plan": "Max",
   "checks": [
     {
-      "timestamp": "2026-02-21T19:45:00-05:00",
+      "timestamp": "2026-02-21T21:00:00-05:00",
       "current_session": {
-        "percent_used": 57,
-        "resets_in": "14 min"
+        "percent_used": 15,
+        "resets_in": "3 hr 59 min"
       },
       "weekly_all_models": {
-        "percent_used": 33,
+        "percent_used": 36,
         "resets": "Thu 1:00 PM"
       },
       "weekly_sonnet": {
@@ -17,45 +17,20 @@
       }
     },
     {
-      "timestamp": "2026-02-21T00:00:00-05:00",
+      "timestamp": "2026-02-21T18:30:00-05:00",
       "current_session": {
+        "percent_used": 42,
+        "resets_in": "~2 hours (rolling)"
+      },
+      "weekly_all_models": {
+        "percent_used": 22,
+        "resets": "Thu 1:00 PM"
+      },
+      "weekly_sonnet": {
         "percent_used": 2,
-        "resets_in": "4 hr 35 min"
-      },
-      "weekly_all_models": {
-        "percent_used": 23,
-        "resets": "Thu 1:00 PM"
-      },
-      "weekly_sonnet": {
-        "percent_used": 4,
-        "resets": "Thu 4:00 PM"
-      }
-    },
-    {
-      "timestamp": "2026-02-20T23:48:00-05:00",
-      "current_session": {
-        "percent_used": 51,
-        "resets_in": "10 min"
-      },
-      "weekly_all_models": {
-        "percent_used": 23,
-        "resets": "Thu 1:00 PM"
-      },
-      "weekly_sonnet": {
-        "percent_used": 4,
         "resets": "Thu 4:00 PM"
       }
     }
   ],
-  "alerts": {
-    "threshold_percent": 80,
-    "spike_threshold_per_hour": 10,
-    "last_alert": null
-  },
-  "rate_tracking": {
-    "enabled": true,
-    "lookback_hours": 3,
-    "notes": "Alert if usage increases >10% in 1 hour, or >20% in 3 hours"
-  },
-  "notes": "Auto-monitored from https://claude.ai/settings/usage via managed browser (profile=openclaw)"
+  "notes": "Auto-monitored via managed browser (profile=openclaw)"
 }
