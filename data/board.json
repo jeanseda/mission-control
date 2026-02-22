@@ -109,7 +109,7 @@
   {
     "id": "15",
     "title": "Fix Discord 401 Unauthorized errors",
-    "description": "Multiple cron jobs failing with '401: Unauthorized' Discord errors: Morning Brief (1 error), Fitness Morning Brief (2 consecutive errors), Vic Saturday Escalation (1 error). Discord integration needs attention - bot token or permissions issue. Status as of Feb 22 12:01 AM: Errors persist across multiple jobs.",
+    "description": "Discord bot token expired/invalid. Affects: Morning Brief, Fitness Morning Brief, Vic Saturday Escalation. Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Diagnosed Feb 22 2 AM.",
     "status": "todo",
     "priority": "critical",
     "project": "OpenClaw",
@@ -117,22 +117,24 @@
       "maintenance",
       "cron",
       "bugfix",
-      "discord"
+      "discord",
+      "requires-human"
     ],
     "dueDate": "2026-02-22"
   },
   {
     "id": "21",
     "title": "Fix GitHub Workspace Backup timeout",
-    "description": "Nightly GitHub backup cron job timing out (60s limit not enough for git operations). Last run: Feb 21 11 PM failed with timeout. Need to increase timeout to 120-180s or optimize the backup script.",
-    "status": "todo",
+    "description": "Nightly GitHub backup cron job timing out (60s limit not enough for git operations). FIXED Feb 22 2 AM: Increased timeout from 60s to 180s. Next backup at 11 PM tonight will validate the fix.",
+    "status": "done",
     "priority": "high",
     "project": "Infrastructure",
     "tags": [
       "cron",
       "backup",
       "timeout"
-    ]
+    ],
+    "completedDate": "2026-02-22"
   },
   {
     "id": "4",

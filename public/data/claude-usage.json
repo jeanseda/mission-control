@@ -2,6 +2,21 @@
   "plan": "Max",
   "checks": [
     {
+      "timestamp": "2026-02-22T03:00:00-05:00",
+      "current_session": {
+        "percent_used": 42,
+        "resets_in": "2 hr 59 min"
+      },
+      "weekly_all_models": {
+        "percent_used": 50,
+        "resets": "Thu 1:00 PM"
+      },
+      "weekly_sonnet": {
+        "percent_used": 10,
+        "resets": "Thu 4:00 PM"
+      }
+    },
+    {
       "timestamp": "2026-02-22T00:00:00-05:00",
       "current_session": {
         "percent_used": 64,
