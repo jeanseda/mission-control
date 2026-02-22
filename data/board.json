@@ -109,7 +109,7 @@
   {
     "id": "15",
     "title": "Fix Discord 401 Unauthorized errors",
-    "description": "Discord bot token expired/invalid. Affects: Morning Brief, Fitness Morning Brief, Vic Saturday Escalation. Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Diagnosed Feb 22 2 AM.",
+    "description": "Discord bot token expired/invalid. Affects: Morning Brief (1 error), Fitness Morning Brief (2 consecutive errors), Vic Saturday Escalation (1 error). Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Diagnosed Feb 22 2 AM. Still failing as of Feb 22 8 AM.",
     "status": "todo",
     "priority": "critical",
     "project": "OpenClaw",
@@ -125,7 +125,7 @@
   {
     "id": "21",
     "title": "Fix GitHub Workspace Backup timeout",
-    "description": "Nightly GitHub backup cron job timing out. Attempted fix (180s timeout) not applied to job payload. Job definition still shows 180s but execution times out at 60s. Need to verify timeout is actually in the cron job config, not just documented. Last failure: Feb 22 11 PM.",
+    "description": "Nightly GitHub backup cron job timing out. Attempted fix (180s timeout) did not resolve the issue - still timing out at 60s. Job shows 180s in config but execution fails with 'cron: job execution timed out'. Need different approach - possibly split into smaller commits or optimize git operations. Last failure: Feb 22 11 PM. Status checked Feb 22 8 AM.",
     "status": "in_progress",
     "priority": "high",
     "project": "Infrastructure",
@@ -133,6 +133,20 @@
       "cron",
       "backup",
       "timeout"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "27",
+    "title": "Fix Fitness Dashboard Health Check model error",
+    "description": "Cron job 'Fitness Dashboard Health Check' failing with 'Unknown model: anthropic/claude-sonnet-4-6'. Model name invalid or deprecated. Need to update job payload to use correct model name (likely anthropic/claude-sonnet-4-5-20250929 or anthropic/claude-sonnet-4-6). Detected Feb 22 8 AM.",
+    "status": "todo",
+    "priority": "high",
+    "project": "Infrastructure",
+    "tags": [
+      "cron",
+      "bugfix",
+      "model"
     ],
     "createdDate": "2026-02-22"
   },
@@ -151,13 +165,31 @@
   {
     "id": "5",
     "title": "Mission Control UI overhaul",
-    "description": "Better aesthetics, fix docs display, improve readability",
+    "description": "Better aesthetics, fix docs display, improve readability. Sprint 1 complete (Feb 22 5 AM): Added data freshness indicators with color-coded status dots, 'last updated' timestamps on all major sections, and manual refresh button. Dashboard now feels alive instead of stale. Next: Sprint 2 (progress indicators, recent wins), Sprint 3 (visual polish), Sprint 4 (motivational intelligence).",
     "status": "in_progress",
     "priority": "medium",
     "project": "Mission Control",
     "tags": [
       "dashboard",
       "ui"
+    ],
+    "subtasks": [
+      {
+        "title": "Sprint 1: Data freshness indicators",
+        "status": "done"
+      },
+      {
+        "title": "Sprint 2: Progress & momentum indicators",
+        "status": "pending"
+      },
+      {
+        "title": "Sprint 3: Visual polish (animations, colors)",
+        "status": "pending"
+      },
+      {
+        "title": "Sprint 4: Motivational intelligence",
+        "status": "pending"
+      }
     ]
   },
   {
