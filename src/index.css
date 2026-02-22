@@ -656,3 +656,82 @@ button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Gamification */
+.xp-progress .progress-fill {
+  background: linear-gradient(90deg, #22c55e, #14b8a6, #3b82f6);
+  box-shadow: 0 0 18px rgba(34, 197, 94, 0.45);
+}
+
+.level-up-burst {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #86efac;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 999px;
+  padding: 0.3rem 0.6rem;
+  animation: levelUpPop 1.8s ease-out;
+}
+
+@keyframes levelUpPop {
+  0% { transform: scale(0.6); opacity: 0; }
+  20% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+.achievement-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 132px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.25s ease;
+}
+
+.achievement-card.unlocked {
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 22px rgba(16, 185, 129, 0.2);
+  animation: achievementPulse 2.4s ease-in-out infinite;
+}
+
+.achievement-card.locked {
+  filter: grayscale(1);
+  opacity: 0.68;
+}
+
+.achievement-card:hover {
+  transform: translateY(-2px);
+}
+
+.achievement-detail {
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+@keyframes achievementPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.15); }
+  50% { box-shadow: 0 0 28px rgba(16, 185, 129, 0.32); }
+}
+
+.revenue-card {
+  border-color: rgba(34, 197, 94, 0.22);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(20, 20, 28, 0.58));
+}
+
+.revenue-card.jackpot {
+  animation: jackpotGlow 1.2s ease-out;
+}
+
+@keyframes jackpotGlow {
+  0% { box-shadow: 0 0 0 rgba(34, 197, 94, 0); }
+  50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.4); }
+  100% { box-shadow: 0 0 0 rgba(34, 197, 94, 0); }
+}

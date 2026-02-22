@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { KanbanBoard, AddTaskModal } from './components/Kanban'
 import { Business } from './components/Business'
+import { XPBar, type XPData } from './components/XPBar'
+import { Achievements, type Achievement } from './components/Achievements'
+import { StatsCard } from './components/StatsCard'
 import type { KanbanTask } from './components/Kanban'
 
 // Types
@@ -26,14 +29,22 @@ interface UsageData {
   lastUpdated: string
 }
 
-type TabType = 'overview' | 'board' | 'agents' | 'business' | 'tools'
+type TabType = 'overview' | 'board' | 'agents' | 'business' | 'stats' | 'tools'
 type ThemeMode = 'dark' | 'light' | 'system'
+
+interface BusinessMetricsSnapshot {
+  goal?: { total?: number }
+  history?: Array<{ amount?: number }>
+}
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [cronJobs, setCronJobs] = useState<CronJob[]>([])
   const [boardTasks, setBoardTasks] = useState<KanbanTask[]>([])
   const [usage, setUsage] = useState<UsageData | null>(null)
+  const [xpData, setXpData] = useState<XPData | null>(null)
+  const [achievements, setAchievements] = useState<Achievement[]>([])
+  const [businessMetrics, setBusinessMetrics] = useState<BusinessMetricsSnapshot | null>(null)
   const [showAddTask, setShowAddTask] = useState(false)
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -121,19 +132,31 @@ function App() {
 
   const loadData = async () => {
     try {
-      const [cronRes, boardRes, usageRes] = await Promise.all([
+      const [cronRes, boardRes, usageRes, xpRes, achievementsRes, businessRes] = await Promise.all([
         fetch('/api/cron'),
         fetch('/api/board'),
-        fetch('/api/usage')
+        fetch('/api/usage'),
+        fetch('/data/xp.json'),
+        fetch('/data/achievements.json'),
+        fetch('/api/business')
       ])
       
       const cronData = await cronRes.json()
       const boardData = await boardRes.json()
       const usageData = await usageRes.json()
-      
-      setCronJobs(Array.isArray(cronData) ? cronData : (cronData?.jobs || []))
-      setBoardTasks(Array.isArray(boardData) ? boardData : (boardData?.tasks || []))
+      const xpSeed = await xpRes.json()
+      const achievementsData = await achievementsRes.json()
+      const businessData = businessRes.ok ? await businessRes.json() : null
+
+      const parsedCronJobs = Array.isArray(cronData) ? cronData : (cronData?.jobs || [])
+      const parsedBoardTasks = Array.isArray(boardData) ? boardData : (boardData?.tasks || [])
+
+      setCronJobs(parsedCronJobs)
+      setBoardTasks(parsedBoardTasks)
       setUsage(usageData)
+      setAchievements(Array.isArray(achievementsData) ? achievementsData : [])
+      setBusinessMetrics(businessData)
+      setXpData(calculateXP(parsedBoardTasks, parsedCronJobs, businessData, xpSeed))
     } catch (e) {
       console.error('Load error:', e)
     } finally {
@@ -187,6 +210,7 @@ function App() {
     { id: 'board' as const, label: 'Board', icon: '📋' },
     { id: 'agents' as const, label: 'Agents & Cron', icon: '🤖' },
     { id: 'business' as const, label: 'Business', icon: '💼' },
+    { id: 'stats' as const, label: 'Stats', icon: '🎮' },
     { id: 'tools' as const, label: 'Tools', icon: '🛠️' },
   ]
 
@@ -302,6 +326,16 @@ function App() {
         <Business />
       )}
       
+      {activeTab === 'stats' && (
+        <StatsTab
+          boardTasks={boardTasks}
+          cronJobs={cronJobs}
+          xpData={xpData}
+          achievements={achievements}
+          businessMetrics={businessMetrics}
+        />
+      )}
+
       {activeTab === 'tools' && (
         <ToolsTab />
       )}
@@ -771,6 +805,146 @@ function LoadingSkeleton() {
         <div className="space-y-4">
           <div className="skeleton h-64 rounded-xl" />
           <div className="skeleton h-48 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function calculateXP(
+  boardTasks: KanbanTask[],
+  cronJobs: CronJob[],
+  business: BusinessMetricsSnapshot | null,
+  seed: XPData
+): XPData {
+  const doneTasks = boardTasks.filter(t => t.status === 'done').length
+  const cleanCronRuns = cronJobs.filter(j => j.state?.lastStatus === 'ok').length
+  const revenue = Math.max(0, Math.round(business?.goal?.total || 0))
+  const uniqueActiveDays = new Set(
+    boardTasks
+      .map(t => t.completedDate || t.createdDate)
+      .filter(Boolean)
+  ).size
+
+  const agentsDeployed = 3
+  const skillsBuilt = 4
+
+  const earnedFromSources =
+    doneTasks * 10 +
+    cleanCronRuns * 2 +
+    revenue * 100 +
+    uniqueActiveDays * 25 +
+    agentsDeployed * 50 +
+    skillsBuilt * 30
+
+  const totalXpEarned = (seed?.totalXpEarned || 0) + earnedFromSources
+  const level = Math.max(1, Math.floor(totalXpEarned / 100) + 1)
+  const xp = totalXpEarned % 100
+
+  const title = level <= 1 ? 'Recruit' :
+    level <= 5 ? 'Operator' :
+    level <= 10 ? 'Commander' :
+    level <= 20 ? 'Architect' : 'Emperor'
+
+  return {
+    ...seed,
+    level,
+    xp,
+    xpToNext: 100,
+    title,
+    totalXpEarned,
+    history: [
+      { source: 'Task completed', amount: doneTasks * 10 },
+      { source: 'Cron job ran clean', amount: cleanCronRuns * 2 },
+      { source: 'Revenue earned', amount: revenue * 100 },
+      { source: 'Streak day', amount: uniqueActiveDays * 25 },
+      { source: 'Agent deployed', amount: agentsDeployed * 50 },
+      { source: 'Skill built', amount: skillsBuilt * 30 },
+    ],
+  }
+}
+
+function StatsTab({
+  boardTasks,
+  cronJobs,
+  xpData,
+  achievements,
+  businessMetrics,
+}: {
+  boardTasks: KanbanTask[]
+  cronJobs: CronJob[]
+  xpData: XPData | null
+  achievements: Achievement[]
+  businessMetrics: BusinessMetricsSnapshot | null
+}) {
+  const tasksDone = boardTasks.filter(task => task.status === 'done').length
+  const daysActive = new Set(boardTasks.map(task => task.completedDate || task.createdDate).filter(Boolean)).size
+  const agentsRunning = 3
+  const skillsBuilt = 4
+
+  const revenueTotal = Math.max(
+    0,
+    Number(
+      businessMetrics?.goal?.total ||
+      businessMetrics?.history?.reduce((sum, item) => sum + (item.amount || 0), 0) ||
+      0
+    )
+  )
+
+  const [revenueDisplay, setRevenueDisplay] = useState(0)
+
+  useEffect(() => {
+    const target = Math.floor(revenueTotal)
+    const step = Math.max(1, Math.ceil(Math.max(1, target) / 60))
+    const timer = setInterval(() => {
+      setRevenueDisplay(prev => {
+        if (prev >= target) return target
+        return Math.min(target, prev + step)
+      })
+    }, 18)
+
+    return () => clearInterval(timer)
+  }, [revenueTotal])
+
+  return (
+    <div className="space-y-6">
+      {xpData && <XPBar xpData={xpData} />}
+
+      <div className={`card revenue-card ${revenueTotal >= 1 ? 'jackpot' : ''}`}>
+        <p className="text-xs uppercase tracking-wider text-zinc-400">Total Revenue Earned</p>
+        <p className="text-4xl sm:text-6xl font-extrabold mt-2 gradient-text mono">${revenueDisplay.toLocaleString()}</p>
+        <p className="text-sm text-zinc-500 mt-2">
+          {revenueTotal >= 1 ? 'Jackpot unlocked 💥' : 'Ready for first dollar'}
+        </p>
+      </div>
+
+      <StatsCard
+        stats={{
+          tasksDone,
+          daysActive,
+          agentsRunning,
+          skillsBuilt,
+        }}
+      />
+
+      <div className="card">
+        <div className="card-header">
+          <span>🏅</span> Achievements
+        </div>
+        <Achievements achievements={achievements} />
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <span>⚡</span> XP Sources
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="item-row">✅ Task completed <span className="font-bold text-emerald-400">+10 XP</span></div>
+          <div className="item-row">⏱️ Cron job ran clean <span className="font-bold text-emerald-400">+2 XP</span></div>
+          <div className="item-row">💰 Revenue earned <span className="font-bold text-emerald-400">+100 XP / $1</span></div>
+          <div className="item-row">🔥 Streak day <span className="font-bold text-emerald-400">+25 XP</span></div>
+          <div className="item-row">🤖 Agent deployed <span className="font-bold text-emerald-400">+50 XP</span></div>
+          <div className="item-row">🛠️ Skill built <span className="font-bold text-emerald-400">+30 XP</span></div>
         </div>
       </div>
     </div>

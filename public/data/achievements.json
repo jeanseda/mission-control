@@ -1,0 +1,74 @@
+[
+  {
+    "id": "early-bird",
+    "icon": "🌅",
+    "name": "Early Bird",
+    "description": "First morning brief received",
+    "unlocked": true
+  },
+  {
+    "id": "night-owl",
+    "icon": "🦉",
+    "name": "Night Owl",
+    "description": "Work session past midnight",
+    "unlocked": true
+  },
+  {
+    "id": "first-dollar",
+    "icon": "💰",
+    "name": "First Dollar",
+    "description": "First revenue earned",
+    "unlocked": false
+  },
+  {
+    "id": "agent-army",
+    "icon": "🤖",
+    "name": "Agent Army",
+    "description": "3+ agents deployed (main, maldo, dealbot)",
+    "unlocked": true
+  },
+  {
+    "id": "seven-day-streak",
+    "icon": "🔥",
+    "name": "7-Day Streak",
+    "description": "7 consecutive days active",
+    "unlocked": false,
+    "progress": "0/7"
+  },
+  {
+    "id": "toolsmith",
+    "icon": "🛠️",
+    "name": "Toolsmith",
+    "description": "5+ skills built",
+    "unlocked": false,
+    "progress": "4/5"
+  },
+  {
+    "id": "launch-day",
+    "icon": "🚀",
+    "name": "Launch Day",
+    "description": "First product launched",
+    "unlocked": false
+  },
+  {
+    "id": "macro-master",
+    "icon": "💪",
+    "name": "Macro Master",
+    "description": "Hit protein target 7 days straight",
+    "unlocked": false
+  },
+  {
+    "id": "builder-3am",
+    "icon": "🌙",
+    "name": "3AM Builder",
+    "description": "Coding session at 3 AM",
+    "unlocked": false
+  },
+  {
+    "id": "data-driven",
+    "icon": "📊",
+    "name": "Data Driven",
+    "description": "Dashboard with 5+ data sources",
+    "unlocked": true
+  }
+]
