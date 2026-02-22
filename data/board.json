@@ -109,9 +109,9 @@
   {
     "id": "15",
     "title": "Fix Discord 401 Unauthorized errors",
-    "description": "Discord bot token expired/invalid. Affects: Morning Brief (1 error), Fitness Morning Brief (2 consecutive errors), Vic Saturday Escalation (1 error). Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Diagnosed Feb 22 2 AM. Still failing as of Feb 22 8 AM.",
-    "status": "todo",
-    "priority": "critical",
+    "description": "Discord bot token expired/invalid. Currently affecting: Vic Saturday Escalation (401 error). Most jobs now working (Morning Brief, Fitness briefs recovered), but Vic-related jobs still failing. Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Last checked: Feb 22 12 PM - partial recovery, Vic jobs still broken.",
+    "status": "in_progress",
+    "priority": "high",
     "project": "OpenClaw",
     "tags": [
       "maintenance",
@@ -120,12 +120,12 @@
       "discord",
       "requires-human"
     ],
-    "dueDate": "2026-02-22"
+    "dueDate": "2026-02-23"
   },
   {
     "id": "21",
     "title": "Fix GitHub Workspace Backup timeout",
-    "description": "Nightly GitHub backup cron job timing out. Attempted fix (180s timeout) did not resolve the issue - still timing out at 60s. Job shows 180s in config but execution fails with 'cron: job execution timed out'. Need different approach - possibly split into smaller commits or optimize git operations. Last failure: Feb 22 11 PM. Status checked Feb 22 8 AM.",
+    "description": "Nightly GitHub backup cron job timing out. Attempted fix (300s timeout) did not resolve the issue - still timing out. Job shows 300s in config but execution fails with 'cron: job execution timed out'. Need different approach - possibly: (1) Split git operations, (2) Add git config for timeout handling, (3) Use git add with pathspec instead of -A, (4) Optimize large files with .gitattributes. Last failure: Feb 22 11 PM (consecutive errors: 1). Workspace is still backed up via Mission Control daily nightly job, so no data loss risk. Status: Active investigation.",
     "status": "in_progress",
     "priority": "high",
     "project": "Infrastructure",
@@ -139,8 +139,8 @@
   {
     "id": "27",
     "title": "Fix Fitness Dashboard Health Check model error",
-    "description": "Cron job 'Fitness Dashboard Health Check' failing with 'Unknown model: anthropic/claude-sonnet-4-6'. Model name invalid or deprecated. Need to update job payload to use correct model name (likely anthropic/claude-sonnet-4-5-20250929 or anthropic/claude-sonnet-4-6). Detected Feb 22 8 AM.",
-    "status": "todo",
+    "description": "Cron job 'Fitness Dashboard Health Check' was failing with 'Unknown model: anthropic/claude-sonnet-4-6'. Fixed by updating job payload to use correct model (anthropic/claude-sonnet-4-5-20250929). Job now running successfully every 6 hours. Verified Feb 22 12 PM.",
+    "status": "done",
     "priority": "high",
     "project": "Infrastructure",
     "tags": [
@@ -148,7 +148,8 @@
       "bugfix",
       "model"
     ],
-    "createdDate": "2026-02-22"
+    "createdDate": "2026-02-22",
+    "completedDate": "2026-02-22"
   },
   {
     "id": "4",
