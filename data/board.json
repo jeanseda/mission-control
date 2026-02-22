@@ -212,7 +212,7 @@
   {
     "id": "15",
     "title": "Fix Discord 401 Unauthorized errors",
-    "description": "Multiple cron jobs failing with '401: Unauthorized' Discord errors: Morning Brief, Usage Check Reminder, Fitness Morning Brief, Vic Saturday Escalation. Also: Maldo Daily Price Check (delivery failed), Autonomous Work 2AM (Discord bot token missing), Autonomous Work 5AM (timeout). Likely Discord integration issue - may need bot token refresh or config update.",
+    "description": "Multiple cron jobs failing with '401: Unauthorized' Discord errors: Morning Brief (1 error), Fitness Morning Brief (2 consecutive errors), Vic Saturday Escalation (1 error). Also: Autonomous Work 2AM (Discord bot token missing), Autonomous Work 5AM (timeout), Dashboard Sync (error), Maldo Daily Price Check (delivery failed). Discord integration needs attention - bot token or permissions issue.",
     "status": "todo",
     "priority": "critical",
     "project": "OpenClaw",
@@ -227,8 +227,8 @@
   {
     "id": "18",
     "title": "Setup GitHub Workspace Backup",
-    "description": "Automated daily backup of workspace to private GitHub repo. Scripts ready, waiting for: 1) Create private repo, 2) Run setup script, 3) Enable cron job. Protects client data with disaster recovery.",
-    "status": "todo",
+    "description": "Automated daily backup of workspace to private GitHub repo. Cron job running nightly at 11 PM. Protects client data with disaster recovery.",
+    "status": "done",
     "priority": "high",
     "project": "Infrastructure",
     "tags": [
@@ -236,7 +236,7 @@
       "backup",
       "automation"
     ],
-    "dueDate": "2026-02-21"
+    "completedDate": "2026-02-21"
   },
   {
     "id": "16",
