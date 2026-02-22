@@ -26,7 +26,8 @@ interface UsageData {
   lastUpdated: string
 }
 
-type TabType = 'overview' | 'board' | 'agents' | 'business'
+type TabType = 'overview' | 'board' | 'agents' | 'business' | 'tools'
+type ThemeMode = 'dark' | 'light' | 'system'
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -36,8 +37,68 @@ function App() {
   const [showAddTask, setShowAddTask] = useState(false)
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
+  
+  // Theme state with system preference support
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('themeMode')
+      if (saved) return saved as ThemeMode
+    }
+    return 'system'
+  })
+
+  const [actualTheme, setActualTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('themeMode')
+      if (saved === 'dark' || saved === 'light') return saved
+      // Use system preference
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light'
+      }
+    }
+    return 'dark'
+  })
 
   const missionStatement = "Build an autonomous organization of AI agents that produces value 24/7 — tools, agents, and hardware that work for me while I sleep."
+
+  // Theme management
+  useEffect(() => {
+    // Apply theme class to document
+    document.documentElement.setAttribute('data-theme', actualTheme)
+    
+    // If system mode, listen for system preference changes
+    if (themeMode === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      const handler = (e: MediaQueryListEvent) => {
+        setActualTheme(e.matches ? 'dark' : 'light')
+      }
+      mediaQuery.addEventListener('change', handler)
+      return () => mediaQuery.removeEventListener('change', handler)
+    }
+  }, [themeMode, actualTheme])
+
+  const cycleTheme = () => {
+    const nextMode: ThemeMode = 
+      themeMode === 'dark' ? 'light' :
+      themeMode === 'light' ? 'system' : 'dark'
+    
+    setThemeMode(nextMode)
+    
+    if (nextMode === 'system') {
+      localStorage.removeItem('themeMode')
+      // Set to current system preference
+      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      setActualTheme(isDark ? 'dark' : 'light')
+    } else {
+      localStorage.setItem('themeMode', nextMode)
+      setActualTheme(nextMode)
+    }
+  }
+
+  const getThemeIcon = () => {
+    if (themeMode === 'system') return '💻'
+    return themeMode === 'dark' ? '🌙' : '☀️'
+  }
 
   // Load data
   useEffect(() => {
@@ -126,6 +187,7 @@ function App() {
     { id: 'board' as const, label: 'Board', icon: '📋' },
     { id: 'agents' as const, label: 'Agents & Cron', icon: '🤖' },
     { id: 'business' as const, label: 'Business', icon: '💼' },
+    { id: 'tools' as const, label: 'Tools', icon: '🛠️' },
   ]
 
   return (
@@ -147,6 +209,13 @@ function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button 
+              onClick={cycleTheme}
+              className="theme-toggle"
+              title={`Theme: ${themeMode}`}
+            >
+              {getThemeIcon()}
+            </button>
             <div className="hidden md:flex items-center gap-3 card px-4 py-2">
               <div className="status-dot success" />
               <span className="text-sm text-zinc-400">System Online</span>
@@ -231,6 +300,10 @@ function App() {
       
       {activeTab === 'business' && (
         <Business />
+      )}
+      
+      {activeTab === 'tools' && (
+        <ToolsTab />
       )}
 
       {/* Footer */}
@@ -698,6 +771,215 @@ function LoadingSkeleton() {
         <div className="space-y-4">
           <div className="skeleton h-64 rounded-xl" />
           <div className="skeleton h-48 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// TOOLS TAB - Skills & Tools Store
+// ═══════════════════════════════════════════════════════════
+
+interface Skill {
+  name: string
+  description: string
+  path: string
+  scripts: string[]
+  category: 'skill' | 'script' | 'agent-tool'
+  hasVenv: boolean
+  createdDate: string
+}
+
+function ToolsTab() {
+  const [skills, setSkills] = useState<Skill[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'skill' | 'script' | 'agent-tool'>('all')
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    loadSkills()
+  }, [])
+
+  const loadSkills = async () => {
+    try {
+      const res = await fetch('/api/skills')
+      const data = await res.json()
+      setSkills(data.skills || [])
+    } catch (e) {
+      console.error('Failed to load skills:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredSkills = skills.filter(skill => {
+    const matchesFilter = filter === 'all' || skill.category === filter
+    const matchesSearch = search === '' || 
+      skill.name.toLowerCase().includes(search.toLowerCase()) ||
+      skill.description.toLowerCase().includes(search.toLowerCase())
+    return matchesFilter && matchesSearch
+  })
+
+  const getIcon = (category: string) => {
+    switch (category) {
+      case 'skill': return '📦'
+      case 'script': return '🔧'
+      case 'agent-tool': return '🤖'
+      default: return '🛠️'
+    }
+  }
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'skill': return 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+      case 'script': return 'bg-orange-500/15 text-orange-400 border-orange-500/30'
+      case 'agent-tool': return 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+      default: return 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30'
+    }
+  }
+
+  const comingSoon = [
+    { name: 'Gmail Integration', description: 'Send and receive emails via Gmail API', icon: '📧' },
+    { name: 'Google Calendar', description: 'Manage calendar events and schedules', icon: '📅' },
+    { name: 'Receipt Scanner', description: 'OCR and parse receipts automatically', icon: '🧾' },
+    { name: 'Telegram Bot', description: 'Custom Telegram bot integration', icon: '✈️' },
+  ]
+
+  if (loading) {
+    return <LoadingSkeleton />
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header & Search */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">Tools & Skills</h2>
+          <p className="text-zinc-500 text-sm mt-1">
+            {filteredSkills.length} {filter === 'all' ? 'total' : filter} tools available
+          </p>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <input
+            type="text"
+            placeholder="Search tools..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="px-4 py-2 rounded-lg border border-zinc-700 bg-zinc-900/50 text-sm focus:border-orange-500 outline-none min-w-[200px]"
+          />
+          
+          <div className="flex gap-2">
+            {['all', 'skill', 'script', 'agent-tool'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f as any)}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  filter === f 
+                    ? 'bg-orange-500 text-white' 
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                }`}
+              >
+                {f === 'all' ? 'All' : f === 'agent-tool' ? 'Agent' : f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tools Grid */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredSkills.map(skill => (
+          <div key={skill.path} className="card group hover:scale-[1.02] transition-transform">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center text-2xl">
+                  {getIcon(skill.category)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-lg truncate">{skill.name}</h3>
+                  <p className="text-xs text-zinc-500 truncate">{skill.path}</p>
+                </div>
+              </div>
+              {skill.scripts.length > 0 && (
+                <div className="status-dot success" title="Functional" />
+              )}
+            </div>
+            
+            <p className="text-sm text-zinc-400 mb-4 line-clamp-2">
+              {skill.description}
+            </p>
+            
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className={`badge ${getCategoryColor(skill.category)}`}>
+                {skill.category}
+              </span>
+              {skill.hasVenv && (
+                <span className="badge bg-green-500/15 text-green-400 border-green-500/30">
+                  venv
+                </span>
+              )}
+              {skill.scripts.length > 0 && (
+                <span className="badge badge-neutral">
+                  {skill.scripts.length} {skill.scripts.length === 1 ? 'script' : 'scripts'}
+                </span>
+              )}
+            </div>
+            
+            {skill.scripts.length > 0 && (
+              <div className="pt-3 border-t border-zinc-800">
+                <p className="text-xs text-zinc-500 mb-1">Scripts:</p>
+                <div className="flex flex-wrap gap-1">
+                  {skill.scripts.slice(0, 3).map(script => (
+                    <span key={script} className="tag-pill mono text-[0.65rem]">
+                      {script}
+                    </span>
+                  ))}
+                  {skill.scripts.length > 3 && (
+                    <span className="tag-pill text-[0.65rem]">
+                      +{skill.scripts.length - 3} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="pt-3 border-t border-zinc-800 mt-3">
+              <p className="text-xs text-zinc-600">
+                Created: {new Date(skill.createdDate).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filteredSkills.length === 0 && (
+        <div className="card text-center py-12">
+          <p className="text-zinc-500">No tools found matching your criteria</p>
+        </div>
+      )}
+
+      {/* Coming Soon Section */}
+      <div className="mt-12">
+        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+          <span>🚀</span> Coming Soon
+        </h3>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {comingSoon.map(tool => (
+            <div key={tool.name} className="card opacity-50 cursor-not-allowed">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-xl">
+                  {tool.icon}
+                </div>
+                <h4 className="font-semibold text-sm">{tool.name}</h4>
+              </div>
+              <p className="text-xs text-zinc-500">{tool.description}</p>
+              <div className="mt-3 pt-3 border-t border-zinc-800">
+                <span className="badge badge-neutral text-[0.65rem]">In Development</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

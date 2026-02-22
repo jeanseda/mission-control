@@ -640,6 +640,139 @@ app.get('/api/health', (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════
+// SKILLS & TOOLS
+// ═══════════════════════════════════════════════════════════
+
+app.get('/api/skills', async (req, res) => {
+  try {
+    const skills: Array<{
+      name: string
+      description: string
+      path: string
+      scripts: string[]
+      category: 'skill' | 'script' | 'agent-tool'
+      hasVenv: boolean
+      createdDate: string
+    }> = []
+
+    // Helper to extract YAML frontmatter from SKILL.md
+    const extractFrontmatter = (content: string) => {
+      const match = content.match(/^---\n([\s\S]*?)\n---/)
+      if (!match) return null
+      const yaml = match[1]
+      const nameMatch = yaml.match(/name:\s*(.+)/)
+      const descMatch = yaml.match(/description:\s*(.+)/)
+      return {
+        name: nameMatch ? nameMatch[1].trim() : null,
+        description: descMatch ? descMatch[1].trim() : null
+      }
+    }
+
+    // Scan skills directory
+    const skillsDir = join(WORKSPACE, 'skills')
+    if (existsSync(skillsDir)) {
+      const skillDirs = readdirSync(skillsDir)
+      for (const skillDir of skillDirs) {
+        const skillPath = join(skillsDir, skillDir)
+        if (!statSync(skillPath).isDirectory()) continue
+
+        const skillMd = join(skillPath, 'SKILL.md')
+        const scriptsDir = join(skillPath, 'scripts')
+        const venvDir = join(skillPath, 'venv')
+
+        let name = skillDir
+        let description = 'No description available'
+
+        // Read SKILL.md if exists
+        if (existsSync(skillMd)) {
+          const content = readFileSync(skillMd, 'utf-8')
+          const frontmatter = extractFrontmatter(content)
+          if (frontmatter) {
+            name = frontmatter.name || skillDir
+            description = frontmatter.description || description
+          }
+        }
+
+        // Find scripts
+        const scripts: string[] = []
+        if (existsSync(scriptsDir)) {
+          const scriptFiles = readdirSync(scriptsDir)
+          scripts.push(...scriptFiles.filter(f => 
+            f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.sh')
+          ))
+        }
+
+        const stat = statSync(skillPath)
+        skills.push({
+          name,
+          description,
+          path: `skills/${skillDir}`,
+          scripts,
+          category: 'skill',
+          hasVenv: existsSync(venvDir),
+          createdDate: stat.birthtime.toISOString().split('T')[0]
+        })
+      }
+    }
+
+    // Scan agents/maldo/scripts
+    const maldoScriptsDir = join(WORKSPACE, 'agents/maldo/scripts')
+    if (existsSync(maldoScriptsDir)) {
+      const scriptFiles = readdirSync(maldoScriptsDir).filter(f => 
+        f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.sh')
+      )
+      for (const script of scriptFiles) {
+        const scriptPath = join(maldoScriptsDir, script)
+        const stat = statSync(scriptPath)
+        const name = script.replace(/\.(py|js|sh)$/, '')
+        skills.push({
+          name: `Maldo: ${name}`,
+          description: 'Maldo agent utility script',
+          path: `agents/maldo/scripts/${script}`,
+          scripts: [script],
+          category: 'agent-tool',
+          hasVenv: false,
+          createdDate: stat.birthtime.toISOString().split('T')[0]
+        })
+      }
+    }
+
+    // Scan mission-control/scripts
+    const dashboardScriptsDir = join(WORKSPACE, 'mission-control/scripts')
+    if (existsSync(dashboardScriptsDir)) {
+      const scriptFiles = readdirSync(dashboardScriptsDir).filter(f => 
+        f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.sh')
+      )
+      for (const script of scriptFiles) {
+        const scriptPath = join(dashboardScriptsDir, script)
+        const stat = statSync(scriptPath)
+        const name = script.replace(/\.(py|js|sh)$/, '')
+        skills.push({
+          name: `Dashboard: ${name}`,
+          description: 'Mission Control utility script',
+          path: `mission-control/scripts/${script}`,
+          scripts: [script],
+          category: 'script',
+          hasVenv: false,
+          createdDate: stat.birthtime.toISOString().split('T')[0]
+        })
+      }
+    }
+
+    // Sort by created date (newest first)
+    skills.sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime())
+
+    res.json({
+      skills,
+      lastUpdated: new Date().toISOString()
+    })
+  } catch (e) {
+    console.error('Failed to get skills:', e)
+    res.json({ skills: [], lastUpdated: new Date().toISOString() })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════
 // USAGE TRACKING
 // ═══════════════════════════════════════════════════════════
 
