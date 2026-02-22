@@ -72,6 +72,14 @@ function App() {
     return 'dark'
   })
 
+  // Track last updated timestamps for data freshness
+  const [lastUpdated, setLastUpdated] = useState<{
+    cron?: string
+    board?: string
+    usage?: string
+    business?: string
+  }>({})
+
   const missionStatement = "Build an autonomous organization of AI agents that produces value 24/7 — tools, agents, and hardware that work for me while I sleep."
 
   // Theme management
@@ -159,6 +167,14 @@ function App() {
       setAchievements(Array.isArray(achievementsData) ? achievementsData : [])
       setBusinessMetrics(businessData)
       setXpData(calculateXP(parsedBoardTasks, parsedCronJobs, businessData, xpSeed))
+      
+      // Track last updated timestamps
+      setLastUpdated({
+        cron: cronData?.lastUpdated,
+        board: boardData?.lastUpdated,
+        usage: usageData?.lastUpdated,
+        business: businessData?.last_updated
+      })
     } catch (e) {
       console.error('Load error:', e)
     } finally {
@@ -243,8 +259,23 @@ function App() {
               {getThemeIcon()}
             </button>
             <div className="hidden md:flex items-center gap-3 card px-4 py-2">
-              <div className="status-dot success" />
-              <span className="text-sm text-zinc-400">System Online</span>
+              {lastUpdated.cron ? (
+                <>
+                  <FreshnessIndicator timestamp={lastUpdated.cron} label="Data" />
+                  <button 
+                    onClick={() => loadData()} 
+                    className="text-zinc-400 hover:text-orange-400 transition-colors ml-2"
+                    title="Refresh data"
+                  >
+                    🔄
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="status-dot success" />
+                  <span className="text-sm text-zinc-400">System Online</span>
+                </>
+              )}
             </div>
             {usage && (
               <div className="card px-3 py-1.5 sm:px-4 sm:py-2">
@@ -295,6 +326,7 @@ function App() {
             boardTasks={boardTasks}
             usage={usage}
             loading={loading}
+            lastUpdated={lastUpdated}
           />
         )}
         
@@ -322,7 +354,7 @@ function App() {
         )}
         
         {activeTab === 'agents' && (
-          <AgentsTab cronJobs={cronJobs} boardTasks={boardTasks} />
+          <AgentsTab cronJobs={cronJobs} boardTasks={boardTasks} lastUpdated={lastUpdated} />
         )}
         
         {activeTab === 'business' && (
@@ -365,11 +397,17 @@ function App() {
 // OVERVIEW TAB - The Money Tab
 // ═══════════════════════════════════════════════════════════
 
-function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
+function OverviewTab({ cronJobs, boardTasks, usage, loading, lastUpdated }: {
   cronJobs: CronJob[]
   boardTasks: KanbanTask[]
   usage: UsageData | null
   loading: boolean
+  lastUpdated: {
+    cron?: string
+    board?: string
+    usage?: string
+    business?: string
+  }
 }) {
   const activeJobs = cronJobs.filter(j => j.enabled !== false).length
   
@@ -413,8 +451,11 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
           {/* Today's Wins */}
           {todayWins.length > 0 && (
             <div className="card accent-border">
-              <div className="card-header">
-                <span>🏆</span> Today's Wins
+              <div className="card-header flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span>🏆</span> Today's Wins
+                </div>
+                {lastUpdated.board && <FreshnessIndicator timestamp={lastUpdated.board} />}
               </div>
               <div className="space-y-2">
                 {todayWins.map(task => (
@@ -450,8 +491,11 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
 
           {/* System Health */}
           <div className="card">
-            <div className="card-header">
-              <span>💚</span> System Health
+            <div className="card-header flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span>💚</span> System Health
+              </div>
+              {lastUpdated.cron && <FreshnessIndicator timestamp={lastUpdated.cron} />}
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
@@ -510,7 +554,16 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
 // AGENTS & CRON TAB
 // ═══════════════════════════════════════════════════════════
 
-function AgentsTab({ cronJobs, boardTasks }: { cronJobs: CronJob[]; boardTasks: KanbanTask[] }) {
+function AgentsTab({ cronJobs, boardTasks, lastUpdated }: { 
+  cronJobs: CronJob[]; 
+  boardTasks: KanbanTask[]
+  lastUpdated: {
+    cron?: string
+    board?: string
+    usage?: string
+    business?: string
+  }
+}) {
   // Agents (hardcoded for now - could be dynamic later)
   const agents = [
     { 
@@ -557,8 +610,11 @@ function AgentsTab({ cronJobs, boardTasks }: { cronJobs: CronJob[]; boardTasks: 
 
       {/* All Cron Jobs Table */}
       <div className="card">
-        <div className="card-header">
-          <span>⏰</span> Scheduled Jobs ({cronJobs.length})
+        <div className="card-header flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>⏰</span> Scheduled Jobs ({cronJobs.length})
+          </div>
+          {lastUpdated.cron && <FreshnessIndicator timestamp={lastUpdated.cron} />}
         </div>
         {cronJobs.length === 0 ? (
           <p className="text-zinc-500 text-sm">No cron jobs configured</p>
@@ -745,6 +801,24 @@ function formatRelativeTime(ms: number): string {
   if (days < 7) return `${days}d ago`
   
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// Helper to show freshness indicator
+function FreshnessIndicator({ timestamp, label }: { timestamp?: string; label?: string }) {
+  if (!timestamp) return null
+  
+  const ageMs = Date.now() - new Date(timestamp).getTime()
+  const ageMins = Math.floor(ageMs / 60000)
+  
+  const status = ageMins < 5 ? 'success' : ageMins < 60 ? 'warning' : 'danger'
+  const text = formatRelativeTime(new Date(timestamp).getTime())
+  
+  return (
+    <div className="flex items-center gap-2 text-xs text-zinc-500">
+      <div className={`status-dot ${status}`} />
+      <span>{label ? `${label}: ` : ''}{text}</span>
+    </div>
+  )
 }
 
 function LoadingSkeleton() {
