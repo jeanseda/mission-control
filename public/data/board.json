@@ -125,8 +125,8 @@
   {
     "id": "21",
     "title": "Fix GitHub Workspace Backup timeout",
-    "description": "Nightly GitHub backup cron job timing out (60s limit not enough for git operations). FIXED Feb 22 2 AM: Increased timeout from 60s to 180s. Next backup at 11 PM tonight will validate the fix.",
-    "status": "done",
+    "description": "Nightly GitHub backup cron job timing out. Attempted fix (180s timeout) not applied to job payload. Job definition still shows 180s but execution times out at 60s. Need to verify timeout is actually in the cron job config, not just documented. Last failure: Feb 22 11 PM.",
+    "status": "in_progress",
     "priority": "high",
     "project": "Infrastructure",
     "tags": [
@@ -134,7 +134,7 @@
       "backup",
       "timeout"
     ],
-    "completedDate": "2026-02-22"
+    "createdDate": "2026-02-22"
   },
   {
     "id": "4",
@@ -151,13 +151,31 @@
   {
     "id": "5",
     "title": "Mission Control UI overhaul",
-    "description": "Better aesthetics, fix docs display, improve readability",
+    "description": "Better aesthetics, fix docs display, improve readability. Sprint 1 complete (Feb 22 5 AM): Added data freshness indicators with color-coded status dots, 'last updated' timestamps on all major sections, and manual refresh button. Dashboard now feels alive instead of stale. Next: Sprint 2 (progress indicators, recent wins), Sprint 3 (visual polish), Sprint 4 (motivational intelligence).",
     "status": "in_progress",
     "priority": "medium",
     "project": "Mission Control",
     "tags": [
       "dashboard",
       "ui"
+    ],
+    "subtasks": [
+      {
+        "title": "Sprint 1: Data freshness indicators",
+        "status": "done"
+      },
+      {
+        "title": "Sprint 2: Progress & momentum indicators",
+        "status": "pending"
+      },
+      {
+        "title": "Sprint 3: Visual polish (animations, colors)",
+        "status": "pending"
+      },
+      {
+        "title": "Sprint 4: Motivational intelligence",
+        "status": "pending"
+      }
     ]
   },
   {
