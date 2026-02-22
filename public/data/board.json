@@ -1,5 +1,106 @@
 [
   {
+    "id": "34",
+    "title": "Daily Discovery - Daily AI news posts",
+    "description": "Daily AI discovery/news posts to Discord via cron job.",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "Daily Discovery",
+    "tags": [
+      "discord",
+      "content",
+      "automation"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "33",
+    "title": "Vic Missions - Weekly mentoring program",
+    "description": "Weekly Discord mentoring program for Vic (missions + accountability).",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "Vic Missions",
+    "tags": [
+      "vic",
+      "discord",
+      "mentoring"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "32",
+    "title": "Fitness Dashboard - Live on Render",
+    "description": "Fitness dashboard running on Render (Vite app + API).",
+    "status": "done",
+    "priority": "medium",
+    "project": "Fitness Dashboard",
+    "tags": [
+      "fitness",
+      "dashboard",
+      "deployment"
+    ],
+    "createdDate": "2026-02-22",
+    "completedDate": "2026-02-22"
+  },
+  {
+    "id": "31",
+    "title": "Notion CRM - Leads + Clients databases",
+    "description": "Notion CRM built today (Leads + Clients databases).",
+    "status": "done",
+    "priority": "medium",
+    "project": "Notion CRM",
+    "tags": [
+      "crm",
+      "notion",
+      "ops"
+    ],
+    "createdDate": "2026-02-22",
+    "completedDate": "2026-02-22"
+  },
+  {
+    "id": "30",
+    "title": "MerchLab - Trend Agent Running",
+    "description": "Merch/t-shirt business with Jomaris. Trend agent running daily intel + merch opportunity posts.",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "MerchLab",
+    "tags": [
+      "merch",
+      "trends",
+      "automation"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "29",
+    "title": "Maldo Distributors - Daily price tracking (active)",
+    "description": "Active client. Automated daily price tracking running (cron: Maldo Daily Price Check).",
+    "status": "in_progress",
+    "priority": "high",
+    "project": "Maldo Distributors",
+    "tags": [
+      "client",
+      "automation",
+      "pricing"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "28",
+    "title": "GEO Audit SaaS - Launch",
+    "description": "GEO Audit SaaS launching Monday Feb 24 (go-live + public posts).",
+    "status": "in_progress",
+    "priority": "critical",
+    "project": "GEO Audit",
+    "tags": [
+      "launch",
+      "revenue",
+      "marketing"
+    ],
+    "createdDate": "2026-02-22",
+    "dueDate": "2026-02-24"
+  },
+  {
     "id": "22",
     "title": "GEO Audit MVP",
     "description": "AI Visibility Audit tool. Checks how businesses appear in ChatGPT/Claude/Perplexity. Free score → paid audit ($497) → monthly monitoring ($197/mo)",
@@ -30,8 +131,8 @@
   {
     "id": "24",
     "title": "GEO Audit Launch",
-    "description": "Target: Launch by Sunday night Feb 23. Post on LinkedIn, Reddit, Twitter Monday.",
-    "status": "planned",
+    "description": "Launch Monday Feb 24. Post on LinkedIn, Reddit, Twitter Monday.",
+    "status": "in_progress",
     "priority": "critical",
     "project": "GEO Audit",
     "tags": [
@@ -109,9 +210,9 @@
   {
     "id": "15",
     "title": "Fix Discord 401 Unauthorized errors",
-    "description": "Discord bot token expired/invalid. Affects: Morning Brief, Fitness Morning Brief, Vic Saturday Escalation. Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Diagnosed Feb 22 2 AM.",
-    "status": "todo",
-    "priority": "critical",
+    "description": "Discord bot token expired/invalid. Currently affecting: Vic Saturday Escalation (401 error). Most jobs now working (Morning Brief, Fitness briefs recovered), but Vic-related jobs still failing. Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Last checked: Feb 22 12 PM - partial recovery, Vic jobs still broken.",
+    "status": "in_progress",
+    "priority": "high",
     "project": "OpenClaw",
     "tags": [
       "maintenance",
@@ -120,12 +221,12 @@
       "discord",
       "requires-human"
     ],
-    "dueDate": "2026-02-22"
+    "dueDate": "2026-02-23"
   },
   {
     "id": "21",
     "title": "Fix GitHub Workspace Backup timeout",
-    "description": "Nightly GitHub backup cron job timing out. Attempted fix (180s timeout) not applied to job payload. Job definition still shows 180s but execution times out at 60s. Need to verify timeout is actually in the cron job config, not just documented. Last failure: Feb 22 11 PM.",
+    "description": "Nightly GitHub backup cron job timing out. Attempted fix (300s timeout) did not resolve the issue - still timing out. Job shows 300s in config but execution fails with 'cron: job execution timed out'. Need different approach - possibly: (1) Split git operations, (2) Add git config for timeout handling, (3) Use git add with pathspec instead of -A, (4) Optimize large files with .gitattributes. Last failure: Feb 22 11 PM (consecutive errors: 1). Workspace is still backed up via Mission Control daily nightly job, so no data loss risk. Status: Active investigation.",
     "status": "in_progress",
     "priority": "high",
     "project": "Infrastructure",
@@ -135,6 +236,21 @@
       "timeout"
     ],
     "createdDate": "2026-02-22"
+  },
+  {
+    "id": "27",
+    "title": "Fix Fitness Dashboard Health Check model error",
+    "description": "Cron job 'Fitness Dashboard Health Check' was failing with 'Unknown model: anthropic/claude-sonnet-4-6'. Fixed by updating job payload to use correct model (anthropic/claude-sonnet-4-5-20250929). Job now running successfully every 6 hours. Verified Feb 22 12 PM.",
+    "status": "done",
+    "priority": "high",
+    "project": "Infrastructure",
+    "tags": [
+      "cron",
+      "bugfix",
+      "model"
+    ],
+    "createdDate": "2026-02-22",
+    "completedDate": "2026-02-22"
   },
   {
     "id": "4",

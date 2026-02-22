@@ -1,5 +1,106 @@
 [
   {
+    "id": "34",
+    "title": "Daily Discovery - Daily AI news posts",
+    "description": "Daily AI discovery/news posts to Discord via cron job.",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "Daily Discovery",
+    "tags": [
+      "discord",
+      "content",
+      "automation"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "33",
+    "title": "Vic Missions - Weekly mentoring program",
+    "description": "Weekly Discord mentoring program for Vic (missions + accountability).",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "Vic Missions",
+    "tags": [
+      "vic",
+      "discord",
+      "mentoring"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "32",
+    "title": "Fitness Dashboard - Live on Render",
+    "description": "Fitness dashboard running on Render (Vite app + API).",
+    "status": "done",
+    "priority": "medium",
+    "project": "Fitness Dashboard",
+    "tags": [
+      "fitness",
+      "dashboard",
+      "deployment"
+    ],
+    "createdDate": "2026-02-22",
+    "completedDate": "2026-02-22"
+  },
+  {
+    "id": "31",
+    "title": "Notion CRM - Leads + Clients databases",
+    "description": "Notion CRM built today (Leads + Clients databases).",
+    "status": "done",
+    "priority": "medium",
+    "project": "Notion CRM",
+    "tags": [
+      "crm",
+      "notion",
+      "ops"
+    ],
+    "createdDate": "2026-02-22",
+    "completedDate": "2026-02-22"
+  },
+  {
+    "id": "30",
+    "title": "MerchLab - Trend Agent Running",
+    "description": "Merch/t-shirt business with Jomaris. Trend agent running daily intel + merch opportunity posts.",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "MerchLab",
+    "tags": [
+      "merch",
+      "trends",
+      "automation"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "29",
+    "title": "Maldo Distributors - Daily price tracking (active)",
+    "description": "Active client. Automated daily price tracking running (cron: Maldo Daily Price Check).",
+    "status": "in_progress",
+    "priority": "high",
+    "project": "Maldo Distributors",
+    "tags": [
+      "client",
+      "automation",
+      "pricing"
+    ],
+    "createdDate": "2026-02-22"
+  },
+  {
+    "id": "28",
+    "title": "GEO Audit SaaS - Launch",
+    "description": "GEO Audit SaaS launching Monday Feb 24 (go-live + public posts).",
+    "status": "in_progress",
+    "priority": "critical",
+    "project": "GEO Audit",
+    "tags": [
+      "launch",
+      "revenue",
+      "marketing"
+    ],
+    "createdDate": "2026-02-22",
+    "dueDate": "2026-02-24"
+  },
+  {
     "id": "22",
     "title": "GEO Audit MVP",
     "description": "AI Visibility Audit tool. Checks how businesses appear in ChatGPT/Claude/Perplexity. Free score → paid audit ($497) → monthly monitoring ($197/mo)",
@@ -30,8 +131,8 @@
   {
     "id": "24",
     "title": "GEO Audit Launch",
-    "description": "Target: Launch by Sunday night Feb 23. Post on LinkedIn, Reddit, Twitter Monday.",
-    "status": "planned",
+    "description": "Launch Monday Feb 24. Post on LinkedIn, Reddit, Twitter Monday.",
+    "status": "in_progress",
     "priority": "critical",
     "project": "GEO Audit",
     "tags": [

@@ -9,6 +9,9 @@ dist-server/
 data/*
 !data/board.json
 !data/business-metrics.json
+!data/cron-jobs.json
+!data/claude-usage.json
+!data/agents.json
 
 # Environment
 .env

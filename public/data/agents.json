@@ -1,0 +1,32 @@
+{
+  "agents": [
+    {
+      "id": "main",
+      "agentId": "main",
+      "name": "Main (Max)",
+      "role": "Primary agent (Jean's DMs)",
+      "model": "anthropic/claude-opus-4-6",
+      "status": "active",
+      "uptimeHours": 72
+    },
+    {
+      "id": "dealbot",
+      "agentId": "dealbot",
+      "name": "DealBot",
+      "role": "WhatsApp business agent",
+      "model": "anthropic/claude-sonnet-4-5",
+      "status": "idle",
+      "uptimeHours": 16
+    },
+    {
+      "id": "maldo",
+      "agentId": "maldo",
+      "name": "Max para Maldo",
+      "role": "Wholesale price tracking + client ops for Maldo Distributors",
+      "model": "anthropic/claude-sonnet-4-5",
+      "status": "active",
+      "uptimeHours": 49
+    }
+  ],
+  "lastUpdated": "2026-02-22T12:41:36-05:00"
+}

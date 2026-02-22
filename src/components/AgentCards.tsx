@@ -12,12 +12,23 @@ interface AgentCardData {
   tasksCompleted: number
 }
 
+interface AgentSeed {
+  id: string
+  name: string
+  role: string
+  model: string
+  agentId?: string
+  status?: 'active' | 'idle'
+  uptimeHours?: number
+}
+
 interface Props {
   cronJobs: Array<{ agentId?: string; state?: { lastRunAtMs?: number; lastStatus?: string } }>
   boardTasks: Array<{ project?: string; status?: string; completedDate?: string; createdDate?: string }>
+  agents?: AgentSeed[]
 }
 
-export function AgentCards({ cronJobs, boardTasks }: Props) {
+export function AgentCards({ cronJobs, boardTasks, agents }: Props) {
   const [tick, setTick] = useState(Date.now())
 
   useEffect(() => {
@@ -28,50 +39,50 @@ export function AgentCards({ cronJobs, boardTasks }: Props) {
   const agentData = useMemo<AgentCardData[]>(() => {
     const done = boardTasks.filter(t => t.status === 'done')
 
-    const maxTasks = done.filter(t => !String(t.project || '').toLowerCase().includes('maldo') && !String(t.project || '').toLowerCase().includes('dealbot')).length
-    const maldoTasks = done.filter(t => String(t.project || '').toLowerCase().includes('maldo')).length
-    const dealbotTasks = done.filter(t => String(t.project || '').toLowerCase().includes('dealbot')).length
+    const tasksCompletedFor = (agentKey: string) => {
+      const key = agentKey.toLowerCase()
+      if (key === 'main' || key === 'max') {
+        return done.filter(t => {
+          const p = String(t.project || '').toLowerCase()
+          return !p.includes('maldo') && !p.includes('dealbot')
+        }).length
+      }
+      return done.filter(t => String(t.project || '').toLowerCase().includes(key)).length
+    }
 
     const byAgent = (agentId?: string) => cronJobs.filter(j => (j.agentId || 'main') === (agentId || 'main'))
 
-    const maxLast = Math.max(...byAgent('main').map(j => j.state?.lastRunAtMs || 0), 0)
-    const maldoLast = Math.max(...byAgent('maldo').map(j => j.state?.lastRunAtMs || 0), 0)
+    const seeds: AgentSeed[] = (agents && agents.length > 0)
+      ? agents
+      : [
+          { id: 'main', name: 'Main (Max)', role: 'Command Core', model: 'anthropic/claude-opus-4-6', agentId: 'main', uptimeHours: 72 },
+          { id: 'maldo', name: 'Maldo', role: 'Client Ops Agent', model: 'anthropic/claude-sonnet-4-5', agentId: 'maldo', uptimeHours: 49 },
+          { id: 'dealbot', name: 'DealBot', role: 'Sales Automation', model: 'anthropic/claude-sonnet-4-5', agentId: 'dealbot', uptimeHours: 16 }
+        ]
 
-    return [
-      {
-        id: 'max',
-        name: 'Main (Max)',
-        role: 'Command Core',
-        model: 'anthropic/claude-opus-4-6',
-        sessions: Math.max(12, byAgent('main').length * 4),
-        uptimeHours: 72,
-        status: Date.now() - maxLast < 6 * 60 * 60 * 1000 ? 'active' : 'idle',
-        lastActivity: formatRelative(maxLast),
-        tasksCompleted: maxTasks,
-      },
-      {
-        id: 'maldo',
-        name: 'Maldo',
-        role: 'Client Ops Agent',
-        model: 'anthropic/claude-sonnet-4-5',
-        sessions: Math.max(3, byAgent('maldo').length * 2),
-        uptimeHours: 49,
-        status: Date.now() - maldoLast < 24 * 60 * 60 * 1000 ? 'active' : 'idle',
-        lastActivity: formatRelative(maldoLast),
-        tasksCompleted: maldoTasks,
-      },
-      {
-        id: 'dealbot',
-        name: 'DealBot',
-        role: 'Sales Automation',
-        model: 'anthropic/claude-sonnet-4-5',
-        sessions: 2,
-        uptimeHours: 16,
-        status: 'active',
-        lastActivity: formatRelative(Date.now() - 40 * 60 * 1000),
-        tasksCompleted: dealbotTasks,
-      },
-    ]
+    return seeds.map(seed => {
+      const agentId = seed.agentId || seed.id || 'main'
+      const last = Math.max(...byAgent(agentId).map(j => j.state?.lastRunAtMs || 0), 0)
+      const assumedActiveWindowMs = agentId === 'maldo'
+        ? 24 * 60 * 60 * 1000
+        : 6 * 60 * 60 * 1000
+
+      const status: 'active' | 'idle' = seed.status
+        ? seed.status
+        : (Date.now() - last < assumedActiveWindowMs ? 'active' : 'idle')
+
+      return {
+        id: seed.id,
+        name: seed.name,
+        role: seed.role,
+        model: seed.model,
+        sessions: Math.max(1, byAgent(agentId).length * 2),
+        uptimeHours: seed.uptimeHours || 0,
+        status,
+        lastActivity: formatRelative(last),
+        tasksCompleted: tasksCompletedFor(agentId),
+      }
+    })
   }, [cronJobs, boardTasks, tick])
 
   const powerLevel = (tasksCompleted: number) => Math.min(9999, 900 + tasksCompleted * 120)

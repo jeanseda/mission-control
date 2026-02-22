@@ -47,6 +47,7 @@ function App() {
   const [xpData, setXpData] = useState<XPData | null>(null)
   const [achievements, setAchievements] = useState<Achievement[]>([])
   const [businessMetrics, setBusinessMetrics] = useState<BusinessMetricsSnapshot | null>(null)
+  const [agentsData, setAgentsData] = useState<any>(null)
   const [showAddTask, setShowAddTask] = useState(false)
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -142,13 +143,14 @@ function App() {
 
   const loadData = async () => {
     try {
-      const [cronRes, boardRes, usageRes, xpRes, achievementsRes, businessRes] = await Promise.all([
+      const [cronRes, boardRes, usageRes, xpRes, achievementsRes, businessRes, agentsRes] = await Promise.all([
         fetch('/api/cron'),
         fetch('/api/board'),
         fetch('/api/usage'),
         fetch('/data/xp.json'),
         fetch('/data/achievements.json'),
-        fetch('/api/business')
+        fetch('/api/business'),
+        fetch('/data/agents.json')
       ])
       
       const cronData = await cronRes.json()
@@ -157,6 +159,7 @@ function App() {
       const xpSeed = await xpRes.json()
       const achievementsData = await achievementsRes.json()
       const businessData = businessRes.ok ? await businessRes.json() : null
+      const agentsData = agentsRes.ok ? await agentsRes.json() : null
 
       const parsedCronJobs = Array.isArray(cronData) ? cronData : (cronData?.jobs || [])
       const parsedBoardTasks = Array.isArray(boardData) ? boardData : (boardData?.tasks || [])
@@ -166,6 +169,7 @@ function App() {
       setUsage(usageData)
       setAchievements(Array.isArray(achievementsData) ? achievementsData : [])
       setBusinessMetrics(businessData)
+      setAgentsData(agentsData)
       setXpData(calculateXP(parsedBoardTasks, parsedCronJobs, businessData, xpSeed))
       
       // Track last updated timestamps
@@ -354,7 +358,7 @@ function App() {
         )}
         
         {activeTab === 'agents' && (
-          <AgentsTab cronJobs={cronJobs} boardTasks={boardTasks} lastUpdated={lastUpdated} />
+          <AgentsTab cronJobs={cronJobs} boardTasks={boardTasks} agents={agentsData?.agents || agentsData || []} lastUpdated={lastUpdated} />
         )}
         
         {activeTab === 'business' && (
@@ -554,9 +558,10 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading, lastUpdated }: {
 // AGENTS & CRON TAB
 // ═══════════════════════════════════════════════════════════
 
-function AgentsTab({ cronJobs, boardTasks, lastUpdated }: { 
+function AgentsTab({ cronJobs, boardTasks, lastUpdated, agents }: { 
   cronJobs: CronJob[]; 
   boardTasks: KanbanTask[]
+  agents: any[]
   lastUpdated: {
     cron?: string
     board?: string
@@ -564,30 +569,6 @@ function AgentsTab({ cronJobs, boardTasks, lastUpdated }: {
     business?: string
   }
 }) {
-  // Agents (hardcoded for now - could be dynamic later)
-  const agents = [
-    { 
-      name: 'Maldo Agent', 
-      status: 'active' as const, 
-      channel: '#maldo-test', 
-      description: 'WhatsApp assistant for Maldo Distributors',
-      missions: 0
-    },
-    { 
-      name: 'Fitness Coach', 
-      status: 'active' as const, 
-      channel: '#fitness-coach',
-      description: 'Notion-powered fitness tracking and coaching',
-      missions: 0
-    },
-    { 
-      name: 'Vic Missions', 
-      status: 'active' as const, 
-      channel: '#vic-workspace',
-      description: 'Personal AI assistant and mission manager',
-      missions: 0
-    },
-  ]
 
   const formatSchedule = (schedule: unknown): string => {
     if (typeof schedule === 'string') return schedule
@@ -606,7 +587,7 @@ function AgentsTab({ cronJobs, boardTasks, lastUpdated }: {
   return (
     <div className="space-y-6">
       {/* Agent Cards */}
-      <AgentCards cronJobs={cronJobs} boardTasks={boardTasks} />
+      <AgentCards cronJobs={cronJobs} boardTasks={boardTasks} agents={agents} />
 
       {/* All Cron Jobs Table */}
       <div className="card">
