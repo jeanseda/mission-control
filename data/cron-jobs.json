@@ -1,0 +1,836 @@
+{
+  "jobs": [
+    {
+      "id": "fa710e87-757a-4014-958b-aa66ef18ab22",
+      "agentId": "main",
+      "name": "Daily Usage Report",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771567878156,
+      "updatedAtMs": 1771642873168,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 22 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "USAGE TRACKING: Daily summary.\n\nCheck today's activity:\n1. Read memory/2026-02-*.md files for session activity\n2. Count cron job runs from cron list\n3. Update workspace/mission-control/data/usage.json with today's stats\n\nDO NOT message Jean unless there's something unusual (like hitting rate limits or errors). This is background bookkeeping.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 120
+      },
+      "delivery": {
+        "mode": "none"
+      },
+      "state": {
+        "nextRunAtMs": 1771729200000,
+        "lastRunAtMs": 1771642800049,
+        "lastStatus": "ok",
+        "lastDurationMs": 73119,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "37bd96dc-a0dd-4e21-852c-882a81943a76",
+      "name": "daily-self-audit",
+      "enabled": true,
+      "createdAtMs": 1771716462938,
+      "updatedAtMs": 1771716462938,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 22 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Review workspace documentation files for quality and consistency:\n\nRead these files: AGENTS.md, MEMORY.md, SOUL.md, IDENTITY.md, USER.md, TOOLS.md, HEARTBEAT.md\n\nLook for:\n- Outdated information or stale entries\n- Conflicting rules or contradictions\n- Undocumented workflows or missing context\n- Lessons from recent failures that should be captured\n- Memory entries that need updating\n\n**Important:** DO NOT make any changes. Only propose recommendations.\n\nFormat your response as:\n- Start with 'AUDIT_CLEAR' if no changes needed\n- Otherwise, list specific proposed changes with file name and brief reason\n- Keep it concise - only suggest changes that genuinely improve the docs\n\nThis is a review, not an edit session.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 180
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "last",
+        "to": "discord:channel:1474109579762602077"
+      },
+      "state": {
+        "nextRunAtMs": 1771729200000
+      }
+    },
+    {
+      "id": "afc0bc90-07bd-4ab8-862b-16e54e806f0b",
+      "agentId": "main",
+      "name": "Nightly Autonomous Work",
+      "enabled": true,
+      "createdAtMs": 1771556861052,
+      "updatedAtMs": 1771646576946,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 23 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "NIGHTLY AUTONOMOUS WORK - Dashboard Maintenance\n\nPRIORITY: Keep Mission Control dashboard fresh and accurate.\n\n1. **Sync board.json with reality:**\n   - Read cron job list (cron list)\n   - Check agent status (sessions_list)\n   - Update task statuses based on actual state\n   - Add new tasks discovered from logs/activity\n   - Mark completed items as done\n\n2. **Update metrics:**\n   - Read data/claude-usage.json for latest usage\n   - Update data/usage.json with today's stats\n   - Calculate weekly progress\n\n3. **Small improvements:**\n   - Fix any UI bugs noticed\n   - Improve data display\n   - Polish aesthetics\n\n4. **Git commit & push:**\n   - Commit changes with descriptive message\n   - Push to GitHub\n\nWork in /Users/jeanseda/.openclaw/workspace/mission-control\n\nDeliver brief summary to Discord channel:1474109579762602077 ONLY if you made meaningful changes.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 300
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474109579762602077"
+      },
+      "state": {
+        "nextRunAtMs": 1771732800000,
+        "lastRunAtMs": 1771646400033,
+        "lastStatus": "ok",
+        "lastDurationMs": 176913,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "c04f3c40-ce26-4688-8cf1-7fc688d5c904",
+      "agentId": "main",
+      "name": "GitHub Workspace Backup",
+      "enabled": true,
+      "createdAtMs": 1771718713556,
+      "updatedAtMs": 1771718713556,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 23 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "GITHUB BACKUP: Auto-commit and push workspace changes.\n\n1. cd /Users/jeanseda/.openclaw/workspace\n2. Run: git add -A\n3. Run: git status to see what changed\n4. If there are changes, commit with message: \"Auto-backup: [date] - [brief summary of changes]\"\n5. Run: git push origin master\n6. If nothing changed, do nothing\n\nThis is a silent background task. Only alert Discord channel:1474109579762602077 if the push FAILS. Otherwise return HEARTBEAT_OK.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 60
+      },
+      "delivery": {
+        "mode": "none"
+      },
+      "state": {
+        "nextRunAtMs": 1771732800000
+      }
+    },
+    {
+      "id": "dfb183d2-b81d-4e48-a2ac-17312d28285e",
+      "agentId": "main",
+      "name": "Fitness Dashboard Health Check",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771544522571,
+      "updatedAtMs": 1771714816721,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 */6 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "FITNESS AGENT TASK: Health check. Ping https://fitness-dashboard-vite.onrender.com/api/dashboard - verify it returns valid JSON with meals, bodyComp, training arrays. If healthy, update agents/fitness/state.json with timestamp and status 'healthy'. Only alert Discord if something is WRONG. Silent success.",
+        "timeoutSeconds": 120
+      },
+      "delivery": {
+        "mode": "none"
+      },
+      "state": {
+        "nextRunAtMs": 1771736400000,
+        "lastRunAtMs": 1771714800041,
+        "lastStatus": "ok",
+        "lastDurationMs": 16680,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "2be962b3-2b57-4a16-afcc-3d7d7f56e55c",
+      "agentId": "main",
+      "name": "Automated Usage Tracking",
+      "enabled": true,
+      "createdAtMs": 1771568238470,
+      "updatedAtMs": 1771728560995,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 */3 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Track Claude usage using the OpenClaw MANAGED BROWSER.\n\n## Method: Managed Browser (profile=\"openclaw\")\n\n1. Use browser tool with profile=\"openclaw\" to open https://claude.ai/settings/usage\n2. Take a snapshot of the page\n3. Extract these values:\n   - Current session: X% used, resets in Y\n   - Weekly All Models: X% used, resets Thu 1:00 PM\n   - Sonnet only: X% used, resets Thu 4:00 PM\n\n**IMPORTANT:** Always use profile=\"openclaw\" (NOT profile=\"chrome\"). The managed browser stays logged in permanently.\n\n## Update Data Files\n\nWrite to BOTH:\n- /Users/jeanseda/.openclaw/workspace/mission-control/public/data/claude-usage.json\n- /Users/jeanseda/.openclaw/workspace/mission-control/data/claude-usage.json\n\nFormat:\n{\n  \"plan\": \"Max\",\n  \"checks\": [\n    {\n      \"timestamp\": \"<ISO timestamp>\",\n      \"current_session\": { \"percent_used\": <num>, \"resets_in\": \"<time>\" },\n      \"weekly_all_models\": { \"percent_used\": <num>, \"resets\": \"Thu 1:00 PM\" },\n      \"weekly_sonnet\": { \"percent_used\": <num>, \"resets\": \"Thu 4:00 PM\" }\n    }\n  ],\n  \"notes\": \"Auto-monitored via managed browser (profile=openclaw)\"\n}\n\nKeep last 10 checks in the array (prepend new, trim old).\n\nAfter updating, cd /Users/jeanseda/.openclaw/workspace/mission-control && git add -A && git commit -m \"Update usage data\" && git push\n\n## Alert Rules\n\nOnly message Jean on Discord channel:1474109579762602077 if:\n- Weekly All Models > 60%\n- Sonnet only > 70%  \n- Session > 80%\n\nOtherwise stay silent.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 120
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1083574882530512969"
+      },
+      "state": {
+        "nextRunAtMs": 1771736400000,
+        "lastRunAtMs": 1771725600055,
+        "lastStatus": "ok",
+        "lastDurationMs": 79213,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "2b7d5246-5d88-4a68-a848-e2d0bf12eb18",
+      "agentId": "main",
+      "name": "Dashboard Sync",
+      "enabled": true,
+      "createdAtMs": 1771638337989,
+      "updatedAtMs": 1771715798657,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 */4 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "DASHBOARD SYNC TASK\n\nUpdate Mission Control dashboard with current status:\n\n1. Read workspace/mission-control/data/board.json\n2. Check cron jobs for any failures\n3. Check agent status (sessions_list)\n4. Update board.json with:\n   - New tasks discovered\n   - Status changes\n   - Completed items\n5. Git commit and push if changes made\n\nKeep it accurate. Only update if there's real changes.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 300
+      },
+      "delivery": {
+        "mode": "none"
+      },
+      "state": {
+        "nextRunAtMs": 1771736400000,
+        "lastRunAtMs": 1771707600051,
+        "lastStatus": "error",
+        "lastDurationMs": 120026,
+        "consecutiveErrors": 1
+      }
+    },
+    {
+      "id": "36cf5f36-8523-4e2e-a5e0-8185a2d28417",
+      "agentId": "main",
+      "name": "Autonomous Work - 2 AM",
+      "enabled": true,
+      "createdAtMs": 1771567486785,
+      "updatedAtMs": 1771715798702,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 2 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "AUTONOMOUS WORK SESSION (2 AM)\n\nRead USER.md for mission context. Pick ONE high-impact task:\n\n1. Dashboard improvements - Mission Control polish\n2. Agent optimization - better prompts, smarter logic\n3. Documentation - keep configs and memory current\n4. Code cleanup - refactor, fix bugs, improve quality\n\nComplete it. Log to memory/YYYY-MM-DD.md. Brief summary to Discord channel:1474109579762602077 only if you accomplished something meaningful.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 600
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474109579762602077"
+      },
+      "state": {
+        "nextRunAtMs": 1771743600000,
+        "lastRunAtMs": 1771657200041,
+        "lastStatus": "error",
+        "lastDurationMs": 253974,
+        "consecutiveErrors": 1,
+        "lastError": "Error: Discord bot token missing for account \"default\" (set discord.accounts.default.token or DISCORD_BOT_TOKEN for default)."
+      }
+    },
+    {
+      "id": "dfc39c4d-64ba-4841-afec-c2a342c60702",
+      "agentId": "main",
+      "name": "Autonomous Work - 5 AM",
+      "enabled": true,
+      "createdAtMs": 1771567486805,
+      "updatedAtMs": 1771715798674,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 5 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "AUTONOMOUS WORK SESSION (5 AM)\n\nRead USER.md for mission context. Pick ONE high-impact task:\n\n1. Dashboard improvements - Mission Control polish\n2. Agent optimization - better prompts, smarter logic  \n3. Documentation - keep configs and memory current\n4. Research - find AI business opportunities, trends\n\nComplete it. Log to memory/YYYY-MM-DD.md. Brief summary to Discord channel:1474109579762602077 only if you accomplished something meaningful.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 600
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474109579762602077"
+      },
+      "state": {
+        "nextRunAtMs": 1771754400000,
+        "lastRunAtMs": 1771668000038,
+        "lastStatus": "error",
+        "lastDurationMs": 300015,
+        "consecutiveErrors": 1,
+        "lastError": "Error: cron: job execution timed out"
+      }
+    },
+    {
+      "id": "e03ceea9-8c80-4a07-9b67-b933ddf36d19",
+      "agentId": "maldo",
+      "name": "Maldo Daily Price Check",
+      "enabled": true,
+      "notify": true,
+      "createdAtMs": 1771642654300,
+      "updatedAtMs": 1771718249775,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 7 * * *",
+        "tz": "America/Puerto_Rico"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Daily Price Report - ACTIVE MODE\n\nYou are Max, the business assistant for Maldo Distributors. It's 7:00 AM Puerto Rico time.\n\nYour task:\n1. Read /Users/jeanseda/.openclaw/workspace/agents/maldo/data/products.json and /Users/jeanseda/.openclaw/workspace/agents/maldo/data/watchlist.json to see what products are being tracked\n2. Read /Users/jeanseda/.openclaw/workspace/agents/maldo/data/maldo-top-products.json for the current product list\n3. Search for current prices of the top 5 priority products (Monster Energy, Red Bull, Coca-Cola, Doritos, etc.)\n4. Compare with last known prices in watchlist.json\n5. If there are price changes or notable deals:\n   - Format a WhatsApp-friendly daily digest (bullets, NOT tables)\n   - Send to Jorge at +17877105233 via WhatsApp\n   - Update watchlist.json with new prices and timestamp\n6. If nothing changed significantly (no price changes >), stay silent - don't spam\n7. Log the report summary to /Users/jeanseda/.openclaw/workspace/agents/maldo/memory/YYYY-MM-DD.md\n\nMessage format when sending:\n📊 *Reporte de Precios - [date]*\n\n🔽 Bajó de precio:\n• [Product]: .XX → .YY en [Store] (-.ZZ)\n\n🔼 Subió:\n• [Product]: .XX → .YY en [Store] (+.ZZ)\n\n✅ Sin cambios: [count] productos estables\n\n💡 Deal del día: [best deal found]\n\nRemember: You send the WhatsApp message directly. This job has delivery mode 'none' - you handle the messaging.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 180
+      },
+      "delivery": {
+        "mode": "none"
+      },
+      "state": {
+        "nextRunAtMs": 1771758000000,
+        "lastRunAtMs": 1771678888187,
+        "lastStatus": "error",
+        "lastDurationMs": 49328,
+        "lastError": "cron announce delivery failed",
+        "consecutiveErrors": 1
+      }
+    },
+    {
+      "id": "caeb13ec-48c6-47fe-9ccd-145ad6c6a5e6",
+      "agentId": "main",
+      "name": "Fitness Morning Brief",
+      "enabled": true,
+      "notify": true,
+      "createdAtMs": 1771544522494,
+      "updatedAtMs": 1771678840673,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 8 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "FITNESS AGENT TASK: Morning brief for jaysm. Read agents/fitness/AGENT.md and config.json. Fetch data from the dashboard API (https://fitness-dashboard-vite.onrender.com/api/dashboard). Send a morning brief to Discord with today's targets, current phase info, and any relevant alerts. Keep it concise and motivating.",
+        "timeoutSeconds": 120
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474202218147352829"
+      },
+      "state": {
+        "nextRunAtMs": 1771765200000,
+        "lastRunAtMs": 1771678800051,
+        "lastStatus": "error",
+        "lastDurationMs": 40622,
+        "consecutiveErrors": 2,
+        "lastError": "Error: 401: Unauthorized"
+      }
+    },
+    {
+      "id": "a33b35b2-2ede-437a-a31f-97d1107aa807",
+      "name": "Business Intelligence Update",
+      "enabled": true,
+      "createdAtMs": 1771646210361,
+      "updatedAtMs": 1771678946942,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 8 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "main",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "systemEvent",
+        "text": "run:/Users/jeanseda/.openclaw/workspace/mission-control/scripts/business-intelligence-update.sh"
+      },
+      "state": {
+        "nextRunAtMs": 1771765200000,
+        "lastRunAtMs": 1771678937515,
+        "lastStatus": "ok",
+        "lastDurationMs": 9427,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "ce4afa4e-3813-4591-9892-17154168f6f5",
+      "agentId": "main",
+      "name": "Fitness Weekly Report",
+      "enabled": true,
+      "notify": true,
+      "createdAtMs": 1771544522557,
+      "updatedAtMs": 1771570841522,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 9 * * 0",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "FITNESS AGENT TASK: Weekly progress report for jaysm. Read agents/fitness/AGENT.md. Fetch full week's data from dashboard API. Calculate: avg daily calories, avg protein, weight trend, days on target, compliance %. Compare to previous week if data available. Send comprehensive but readable report to Discord with trends and one actionable recommendation.",
+        "timeoutSeconds": 180
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474202218147352829"
+      },
+      "state": {
+        "nextRunAtMs": 1771768800000
+      }
+    },
+    {
+      "id": "0f2c282a-31d1-43e0-a4f4-0909b0078f19",
+      "agentId": "main",
+      "name": "Morning Brief",
+      "enabled": true,
+      "createdAtMs": 1771556866514,
+      "updatedAtMs": 1771682427534,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 9 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "MORNING BRIEF for Jean.\n\nRead HEARTBEAT.md for format guidelines.\nRead USER.md for context on what matters.\n\nDeliver a morning brief to Discord channel:1474109579762602077 (#max) with:\n1. 🗓️ Today's schedule (check calendar if available, otherwise skip)\n2. 💪 Fitness targets reminder (calories: 2700-2900, protein: 160-180g)\n3. 🚀 One actionable thing to advance the AI business mission today\n4. ☀️ Weather in Jean's timezone if relevant\n\nKeep it to 4-5 bullets. Tight, actionable, motivating. Start with 'Buenos días' or 'Good morning'.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 120
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474109579762602077"
+      },
+      "state": {
+        "nextRunAtMs": 1771768800000,
+        "lastRunAtMs": 1771682400054,
+        "lastStatus": "error",
+        "lastDurationMs": 27480,
+        "consecutiveErrors": 1,
+        "lastError": "Error: 401: Unauthorized"
+      }
+    },
+    {
+      "id": "c31988da-972c-4ced-b623-65dbc3967708",
+      "agentId": "main",
+      "name": "Daily AI Discovery",
+      "enabled": true,
+      "createdAtMs": 1771716701885,
+      "updatedAtMs": 1771716701885,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 10 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "DAILY AI DISCOVERY: Post one interesting AI news, tool, or concept to Discord.\n\n1. Search the web for today's most interesting AI news, new tools, or breakthroughs\n2. Pick ONE thing that would be exciting and accessible to a beginner learning about AI\n3. Write a short, engaging post in Spanish (3-4 paragraphs max)\n4. Include: what it is, why it matters, and how someone could use it\n5. Add relevant emojis and make it feel exciting, not academic\n6. Post to Discord channel where daily-discovery is (check channel list for the guild 1083574882006212649, find the daily-discovery channel)\n\nStyle: Think of it like sharing a cool find with a friend who's just getting into AI. Casual, enthusiastic, informative.\n\nEnd with a question to encourage engagement, like '¿Qué opinan?' or '¿Les gustaría saber más sobre esto?'",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 120
+      },
+      "delivery": {
+        "mode": "none"
+      },
+      "state": {
+        "nextRunAtMs": 1771772400000
+      }
+    },
+    {
+      "id": "6525a2b5-e391-4c8e-8677-8fc3d12899cf",
+      "agentId": "main",
+      "name": "Withings morning sync",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771434612293,
+      "updatedAtMs": 1771689611159,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 11 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Run the Withings sync for the fitness dashboard project.\n\nSteps:\n1) cd /Users/jeanseda/.openclaw/workspace/fitness-dashboard-vite\n2) Run: npm run withings:sync\n3) Return a short status summary including the mapped readings (weight, body fat, muscle mass, lean mass, bmr) and whether Notion was updated or created.\n\nIf it fails, include the exact error and likely fix."
+      },
+      "delivery": {
+        "mode": "none"
+      },
+      "state": {
+        "nextRunAtMs": 1771776000000,
+        "lastRunAtMs": 1771689600056,
+        "lastStatus": "ok",
+        "lastDurationMs": 11103,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "64f39053-c74b-492a-b239-1c9c8646ccff",
+      "agentId": "main",
+      "name": "Withings evening backup sync",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771434645038,
+      "updatedAtMs": 1771635614995,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 20 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "Run the Withings sync for the fitness dashboard project as an evening backup.\n\nSteps:\n1) cd /Users/jeanseda/.openclaw/workspace/fitness-dashboard-vite\n2) Run: npm run withings:sync\n3) Return a short status summary including mapped readings and whether Notion was updated or created.\n\nIf it fails, include exact error and likely fix."
+      },
+      "delivery": {
+        "mode": "none"
+      },
+      "state": {
+        "nextRunAtMs": 1771808400000,
+        "lastRunAtMs": 1771635600033,
+        "lastStatus": "ok",
+        "lastDurationMs": 14962,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "94923c6f-e16a-49b7-b300-349c37f83533",
+      "agentId": "main",
+      "name": "Fitness Evening Check",
+      "enabled": true,
+      "notify": true,
+      "createdAtMs": 1771544522540,
+      "updatedAtMs": 1771635676862,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 20 * * *",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "FITNESS AGENT TASK: Evening macro check for jaysm. Read agents/fitness/AGENT.md and config.json. Fetch today's data from dashboard API (https://fitness-dashboard-vite.onrender.com/api/dashboard). Calculate if user hit calorie (2700-2800) and protein (160-170g) targets. Send a brief evening update to Discord with status: on track, under, or over. Be direct, not preachy.",
+        "timeoutSeconds": 120
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474202218147352829"
+      },
+      "state": {
+        "nextRunAtMs": 1771808400000,
+        "lastRunAtMs": 1771635614995,
+        "lastStatus": "ok",
+        "lastDurationMs": 61867,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "3a4940af-ec4c-4b7d-a67c-7c29186ec39a",
+      "agentId": "main",
+      "name": "Vic Weekly Mission",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771549379917,
+      "updatedAtMs": 1771613712427,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 9 * * 1",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "VIC MISSIONS: Generate weekly mission for Vic.\n\n1. Read agents/vic-missions/SOUL.md for personality\n2. Read agents/vic-missions/AGENT.md for instructions\n3. Read agents/vic-missions/onboarding.json - check onboarding phase\n4. Read agents/vic-missions/active-mission.json\n\nIF IN ONBOARDING: Generate mission for next module.\nIF ONBOARDING COMPLETE: Generate research/work mission from projects.json.\n\nUpdate active-mission.json.\nBe an enthusiastic mentor. Spanish only.",
+        "timeoutSeconds": 180
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474207021535596730"
+      },
+      "state": {
+        "nextRunAtMs": 1771855200000
+      }
+    },
+    {
+      "id": "55fe9d28-559a-4dc0-9373-a08d0c4a2776",
+      "agentId": "main",
+      "name": "Maldo Launch - Welcome Messages",
+      "enabled": true,
+      "deleteAfterRun": false,
+      "createdAtMs": 1771718269730,
+      "updatedAtMs": 1771724050343,
+      "schedule": {
+        "kind": "at",
+        "at": "2026-02-24T13:00:00.000Z"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "MALDO LAUNCH - Monday Feb 24, 9 AM\n\n⚠️ DO NOT cold-message anyone via WhatsApp API. That gets accounts restricted.\n\nInstead, send Jean a reminder on Discord channel:1474109579762602077:\n\n\"🚀 Maldo launch time! Reminder: text Jorge (+17877105233) and Karla (+17872353649) from your personal WhatsApp and ask them to message the business number +18634205195. Once they message, I'll send the welcome messages automatically.\"\n\nAlso read /Users/jeanseda/.openclaw/workspace/agents/maldo/welcome.md and have the welcome messages ready to send as soon as Jorge and Karla initiate contact.\n\nThis job does NOT auto-delete anymore since it's just a reminder.",
+        "timeoutSeconds": 60
+      },
+      "delivery": {
+        "mode": "none",
+        "channel": "last"
+      },
+      "state": {
+        "nextRunAtMs": 1771938000000
+      }
+    },
+    {
+      "id": "496b4714-e97c-490c-abbf-345709f25cb9",
+      "agentId": "main",
+      "name": "Vic Tuesday Kickstart",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771549873091,
+      "updatedAtMs": 1771613712408,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 18 * * 2",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "VIC ACCOUNTABILITY: Tuesday kickstart.\n\nRead agents/vic-missions/SOUL.md for personality.\nRead agents/vic-missions/active-mission.json for current mission.\n\nSend a SHORT friendly message:\n- ¿Ya empezaste con la misión?\n- ¿Tienes alguna pregunta?\n- Ofrece ayuda si está atorado\n\nKeep it brief and encouraging. Spanish only.",
+        "timeoutSeconds": 60
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474207021535596730"
+      },
+      "state": {
+        "nextRunAtMs": 1771974000000
+      }
+    },
+    {
+      "id": "fbf8e6b9-00a5-427b-b6e8-c279aef6184a",
+      "agentId": "main",
+      "name": "Vic Mid-Week Check-in",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771549379939,
+      "updatedAtMs": 1771613712417,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 14 * * 3",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "VIC MISSIONS: Mid-week check-in.\n\nRead agents/vic-missions/active-mission.json.\n\nIf active mission and no recent completion, send a friendly check-in.\nKeep it short and encouraging, not nagging.\nSpanish only.\n\nIf mission is complete, send congratulations.",
+        "timeoutSeconds": 60
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474207021535596730"
+      },
+      "state": {
+        "nextRunAtMs": 1772046000000
+      }
+    },
+    {
+      "id": "6871dbd0-bfdf-4159-afd5-0770bbf76d06",
+      "agentId": "main",
+      "name": "Pre-Reset Push (Wed Night)",
+      "enabled": true,
+      "createdAtMs": 1771568038233,
+      "updatedAtMs": 1771568038233,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 23 * * 3",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "PRE-RESET WORK SESSION — Use up remaining capacity!\n\nJean's Claude Max resets Thursday 1 PM. This is the final push to maximize value.\n\nDo 2-3 substantial tasks:\n1. Major dashboard improvement or new feature\n2. Research: Find 3 AI business opportunities and summarize them\n3. Agent optimization or new automation\n\nGo big. Log everything to memory/YYYY-MM-DD.md. Report to Discord channel:1474109579762602077 with what you accomplished.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 600
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474109579762602077"
+      },
+      "state": {
+        "nextRunAtMs": 1772078400000
+      }
+    },
+    {
+      "id": "67c8693b-e9cc-49e9-a21d-80b5470da1b0",
+      "agentId": "main",
+      "name": "Final Push (Thu Morning)",
+      "enabled": true,
+      "createdAtMs": 1771568038249,
+      "updatedAtMs": 1771568038249,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 9 * * 4",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "FINAL PUSH before reset at 1 PM!\n\nLast chance to use this billing cycle. Do something substantial:\n1. Build a new feature or tool\n2. Deep research on a business opportunity\n3. Major documentation or system improvement\n\nMaximize the value. Report to Discord channel:1474109579762602077.",
+        "model": "anthropic/claude-sonnet-4-5-20250929",
+        "timeoutSeconds": 600
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474109579762602077"
+      },
+      "state": {
+        "nextRunAtMs": 1772114400000
+      }
+    },
+    {
+      "id": "c404ff38-b2b7-4b4c-91d8-03351de0c162",
+      "agentId": "main",
+      "name": "Vic Friday Deadline Reminder",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771549873112,
+      "updatedAtMs": 1771715798689,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 12 * * 5",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "VIC ACCOUNTABILITY: Friday deadline reminder.\n\nRead agents/vic-missions/SOUL.md for personality.\nRead agents/vic-missions/active-mission.json for current mission.\n\nRemind Vic:\n- Today is the deadline\n- Ask for his progress/deliverable\n- Be encouraging but clear\n\nSpanish only.",
+        "timeoutSeconds": 120
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474207021535596730"
+      },
+      "state": {
+        "nextRunAtMs": 1772211600000,
+        "lastRunAtMs": 1771606849555,
+        "lastStatus": "error",
+        "lastDurationMs": 60005,
+        "lastError": "Error: cron: job execution timed out",
+        "consecutiveErrors": 1
+      }
+    },
+    {
+      "id": "e063c08e-86f5-4353-925c-9f3451a93317",
+      "agentId": "main",
+      "name": "Vic Friday Final Push",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771549873125,
+      "updatedAtMs": 1771635699983,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 20 * * 5",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "VIC ACCOUNTABILITY: Friday evening final push.\n\nRead agents/vic-missions/active-mission.json - check if mission was completed.\n\nIf NOT completed:\n- Send final reminder: 'Última llamada para la misión de esta semana'\n- Offer to help finish it together\n\nIf completed: Send congratulations instead.\n\nSpanish only.",
+        "timeoutSeconds": 60
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474207021535596730"
+      },
+      "state": {
+        "nextRunAtMs": 1772240400000,
+        "lastRunAtMs": 1771635676862,
+        "lastStatus": "ok",
+        "lastDurationMs": 23121,
+        "consecutiveErrors": 0
+      }
+    },
+    {
+      "id": "4910bedd-4826-45c2-853e-9e54ac740e44",
+      "agentId": "main",
+      "name": "Vic Saturday Escalation to jaysm",
+      "enabled": true,
+      "notify": false,
+      "createdAtMs": 1771549873135,
+      "updatedAtMs": 1771686022829,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 10 * * 6",
+        "tz": "America/New_York"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "VIC ACCOUNTABILITY: Saturday escalation check.\n\nRead agents/vic-missions/active-mission.json - check completion status.\n\nIf mission NOT completed this week:\n- Report: 'Update de Vic: La misión de esta semana no se completó'\n- What the mission was\n- Suggest next steps\n\nIf completed: Send positive report instead.\n\nThis goes to Jean's private channel, not Vic's.",
+        "timeoutSeconds": 90
+      },
+      "delivery": {
+        "mode": "announce",
+        "channel": "discord",
+        "to": "channel:1474109579762602077"
+      },
+      "state": {
+        "nextRunAtMs": 1772290800000,
+        "lastRunAtMs": 1771686000056,
+        "lastStatus": "error",
+        "lastDurationMs": 22773,
+        "lastError": "Error: 401: Unauthorized",
+        "consecutiveErrors": 1
+      }
+    }
+  ],
+  "lastUpdated": "2026-02-22T02:57:20.037Z"
+}

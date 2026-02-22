@@ -58,17 +58,30 @@ if (!existsSync(BOARD_FILE)) {
 // ═══════════════════════════════════════════════════════════
 
 app.get('/api/cron', async (req, res) => {
+  // Try live data from openclaw CLI first
   try {
     const { stdout } = await execAsync('openclaw cron list --json 2>/dev/null || echo "[]"')
-    const jobs = JSON.parse(stdout.trim() || '[]')
-    res.json({
-      jobs: Array.isArray(jobs) ? jobs : (jobs?.jobs || []),
-      lastUpdated: new Date().toISOString()
-    })
+    const parsed = JSON.parse(stdout.trim() || '[]')
+    const jobs = Array.isArray(parsed) ? parsed : (parsed?.jobs || [])
+    if (jobs.length > 0) {
+      return res.json({ jobs, lastUpdated: new Date().toISOString() })
+    }
   } catch (e) {
-    console.error('Failed to get cron jobs:', e)
-    res.json({ jobs: [], lastUpdated: new Date().toISOString() })
+    // CLI not available (e.g. on Render), fall through to static file
   }
+
+  // Fallback: read static cron-jobs.json (updated by nightly cron)
+  try {
+    const staticFile = join(DATA_DIR, 'cron-jobs.json')
+    if (existsSync(staticFile)) {
+      const data = JSON.parse(readFileSync(staticFile, 'utf-8'))
+      return res.json(data)
+    }
+  } catch (e) {
+    console.error('Failed to read static cron data:', e)
+  }
+
+  res.json({ jobs: [], lastUpdated: new Date().toISOString() })
 })
 
 // ═══════════════════════════════════════════════════════════
