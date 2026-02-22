@@ -212,7 +212,7 @@
   {
     "id": "15",
     "title": "Fix Discord 401 Unauthorized errors",
-    "description": "Multiple cron jobs failing with '401: Unauthorized' Discord errors: Morning Brief (1 error), Fitness Morning Brief (2 consecutive errors), Vic Saturday Escalation (1 error). Also: Autonomous Work 2AM (Discord bot token missing), Autonomous Work 5AM (timeout), Dashboard Sync (error), Maldo Daily Price Check (delivery failed). Discord integration needs attention - bot token or permissions issue.",
+    "description": "Multiple cron jobs failing with '401: Unauthorized' Discord errors: Morning Brief (1 error), Fitness Morning Brief (2 consecutive errors), Vic Saturday Escalation (1 error). Discord integration needs attention - bot token or permissions issue. Status as of Feb 22 12:01 AM: Errors persist across multiple jobs.",
     "status": "todo",
     "priority": "critical",
     "project": "OpenClaw",
@@ -223,6 +223,19 @@
       "discord"
     ],
     "dueDate": "2026-02-22"
+  },
+  {
+    "id": "21",
+    "title": "Fix GitHub Workspace Backup timeout",
+    "description": "Nightly GitHub backup cron job timing out (60s limit not enough for git operations). Last run: Feb 21 11 PM failed with timeout. Need to increase timeout to 120-180s or optimize the backup script.",
+    "status": "todo",
+    "priority": "high",
+    "project": "Infrastructure",
+    "tags": [
+      "cron",
+      "backup",
+      "timeout"
+    ]
   },
   {
     "id": "18",
