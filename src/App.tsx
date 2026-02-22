@@ -4,6 +4,8 @@ import { Business } from './components/Business'
 import { XPBar, type XPData } from './components/XPBar'
 import { Achievements, type Achievement } from './components/Achievements'
 import { StatsCard } from './components/StatsCard'
+import { ActivityFeed } from './components/ActivityFeed'
+import { AgentCards } from './components/AgentCards'
 import type { KanbanTask } from './components/Kanban'
 
 // Types
@@ -286,59 +288,63 @@ function App() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'overview' && (
-        <OverviewTab 
-          cronJobs={cronJobs} 
-          boardTasks={boardTasks}
-          usage={usage}
-          loading={loading}
-        />
-      )}
-      
-      {activeTab === 'board' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Task Board</h2>
-            <button 
-              onClick={() => setShowAddTask(true)}
-              className="btn-primary"
-            >
-              + Add Task
-            </button>
+      <div key={activeTab} className="tab-transition">
+        {activeTab === 'overview' && (
+          <OverviewTab 
+            cronJobs={cronJobs} 
+            boardTasks={boardTasks}
+            usage={usage}
+            loading={loading}
+          />
+        )}
+        
+        {activeTab === 'board' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Task Board</h2>
+              <button 
+                onClick={() => setShowAddTask(true)}
+                className="btn-primary"
+              >
+                + Add Task
+              </button>
+            </div>
+            <KanbanBoard 
+              tasks={boardTasks} 
+              onTaskMove={handleTaskMove}
+            />
+            <AddTaskModal 
+              isOpen={showAddTask} 
+              onClose={() => setShowAddTask(false)} 
+              onAdd={handleAddTask}
+            />
           </div>
-          <KanbanBoard 
-            tasks={boardTasks} 
-            onTaskMove={handleTaskMove}
+        )}
+        
+        {activeTab === 'agents' && (
+          <AgentsTab cronJobs={cronJobs} boardTasks={boardTasks} />
+        )}
+        
+        {activeTab === 'business' && (
+          <Business />
+        )}
+        
+        {activeTab === 'stats' && (
+          <StatsTab
+            boardTasks={boardTasks}
+            cronJobs={cronJobs}
+            xpData={xpData}
+            achievements={achievements}
+            businessMetrics={businessMetrics}
           />
-          <AddTaskModal 
-            isOpen={showAddTask} 
-            onClose={() => setShowAddTask(false)} 
-            onAdd={handleAddTask}
-          />
-        </div>
-      )}
-      
-      {activeTab === 'agents' && (
-        <AgentsTab cronJobs={cronJobs} />
-      )}
-      
-      {activeTab === 'business' && (
-        <Business />
-      )}
-      
-      {activeTab === 'stats' && (
-        <StatsTab
-          boardTasks={boardTasks}
-          cronJobs={cronJobs}
-          xpData={xpData}
-          achievements={achievements}
-          businessMetrics={businessMetrics}
-        />
-      )}
+        )}
 
-      {activeTab === 'tools' && (
-        <ToolsTab />
-      )}
+        {activeTab === 'tools' && (
+          <ToolsTab />
+        )}
+      </div>
+
+      <QuickActionsPanel onAction={(tab) => setActiveTab(tab)} />
 
       {/* Footer */}
       <footer className="mt-12 text-center">
@@ -377,11 +383,6 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
     .sort((a, b) => (a.state!.nextRunAtMs || 0) - (b.state!.nextRunAtMs || 0))
     .slice(0, 3)
   
-  // Last 10 cron job results
-  const recentResults = cronJobs
-    .filter(j => j.state?.lastRunAtMs)
-    .sort((a, b) => (b.state!.lastRunAtMs || 0) - (a.state!.lastRunAtMs || 0))
-    .slice(0, 10)
 
   if (loading) {
     return <LoadingSkeleton />
@@ -406,45 +407,8 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
 
       {/* Main Grid */}
       <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
-        {/* Activity Feed - Last 10 cron results */}
         <div className="md:col-span-2 space-y-4">
-          <div className="card">
-            <div className="card-header">
-              <span>📡</span> Recent Activity
-            </div>
-            {recentResults.length === 0 ? (
-              <p className="text-zinc-500 text-sm">No recent activity</p>
-            ) : (
-              <div className="space-y-2">
-                {recentResults.map(job => (
-                  <div key={`${job.id}-${job.state?.lastRunAtMs}`} className="item-row">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className={`status-dot ${
-                        job.state?.lastStatus === 'ok' ? 'success' : 'danger'
-                      }`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{job.name}</p>
-                        <p className="text-xs text-zinc-500">
-                          {formatRelativeTime(job.state?.lastRunAtMs || 0)}
-                          {job.state?.lastDurationMs && (
-                            <span className="ml-2">• {Math.round(job.state.lastDurationMs)}ms</span>
-                          )}
-                        </p>
-                        {job.state?.lastError && (
-                          <p className="error-message mt-1">{job.state.lastError}</p>
-                        )}
-                      </div>
-                    </div>
-                    <span className={`badge ${
-                      job.state?.lastStatus === 'ok' ? 'badge-success' : 'badge-danger'
-                    }`}>
-                      {job.state?.lastStatus || 'unknown'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <ActivityFeed />
 
           {/* Today's Wins */}
           {todayWins.length > 0 && (
@@ -482,30 +446,7 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Next Up - Next 3 scheduled jobs */}
-          <div className="card">
-            <div className="card-header">
-              <span>⏰</span> Next Up
-            </div>
-            {upcomingJobs.length === 0 ? (
-              <p className="text-zinc-500 text-sm">No jobs scheduled</p>
-            ) : (
-              <div className="space-y-3">
-                {upcomingJobs.map(job => (
-                  <div key={job.id} className="item-row flex-col items-start gap-1">
-                    <p className="font-medium text-sm">{job.name}</p>
-                    <div className="flex items-center gap-2 w-full">
-                      <CountdownTimer targetMs={job.state!.nextRunAtMs!} />
-                      <div className={`status-dot ${
-                        job.state?.lastStatus === 'ok' ? 'success' :
-                        job.state?.lastStatus === 'error' ? 'danger' : 'idle'
-                      }`} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <ClockNextEventWidget upcomingJobs={upcomingJobs} />
 
           {/* System Health */}
           <div className="card">
@@ -569,7 +510,7 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
 // AGENTS & CRON TAB
 // ═══════════════════════════════════════════════════════════
 
-function AgentsTab({ cronJobs }: { cronJobs: CronJob[] }) {
+function AgentsTab({ cronJobs, boardTasks }: { cronJobs: CronJob[]; boardTasks: KanbanTask[] }) {
   // Agents (hardcoded for now - could be dynamic later)
   const agents = [
     { 
@@ -612,43 +553,7 @@ function AgentsTab({ cronJobs }: { cronJobs: CronJob[] }) {
   return (
     <div className="space-y-6">
       {/* Agent Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {agents.map(agent => (
-          <div key={agent.name} className="card">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
-                  agent.status === 'active' ? 'bg-emerald-500/20' : 'bg-zinc-700/50'
-                }`}>
-                  {agent.name.includes('Fitness') ? '🏋️' : 
-                   agent.name.includes('Maldo') ? '🤖' : '🎯'}
-                </div>
-                <div>
-                  <p className="font-semibold text-lg">{agent.name}</p>
-                  <p className="text-xs text-zinc-500">{agent.channel}</p>
-                </div>
-              </div>
-              <span className={`badge ${agent.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
-                {agent.status}
-              </span>
-            </div>
-            <p className="text-sm text-zinc-400 mb-4">{agent.description}</p>
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-zinc-800">
-              <div>
-                <p className="text-xs text-zinc-500">Missions</p>
-                <p className="text-xl font-bold">{agent.missions}</p>
-              </div>
-              <div>
-                <p className="text-xs text-zinc-500">Status</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="status-dot success" />
-                  <p className="text-sm font-medium text-emerald-400">Running</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <AgentCards cronJobs={cronJobs} boardTasks={boardTasks} />
 
       {/* All Cron Jobs Table */}
       <div className="card">
@@ -714,6 +619,42 @@ function AgentsTab({ cronJobs }: { cronJobs: CronJob[] }) {
   )
 }
 
+
+function ClockNextEventWidget({ upcomingJobs }: { upcomingJobs: CronJob[] }) {
+  const now = new Date()
+  const next = upcomingJobs[0]
+
+  return (
+    <div className="card clock-widget">
+      <p className="text-xs uppercase tracking-wider text-zinc-500">Live Clock</p>
+      <p className="text-3xl font-bold mono mt-1">{now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+      <p className="text-xs text-zinc-500 mt-1">{now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+
+      <div className="mt-4 pt-4 border-t border-zinc-800">
+        <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2">Next Scheduled Event</p>
+        {next?.state?.nextRunAtMs ? (
+          <>
+            <p className="font-semibold text-sm">{next.name}</p>
+            <p className="text-orange-400 mt-1"><CountdownTimer targetMs={next.state.nextRunAtMs} /></p>
+          </>
+        ) : (
+          <p className="text-zinc-500 text-sm">No scheduled jobs</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function QuickActionsPanel({ onAction }: { onAction: (tab: TabType) => void }) {
+  return (
+    <div className="quick-actions-panel">
+      <a className="quick-action-btn" href="https://geo.audit" target="_blank" rel="noopener noreferrer">🔎 Run Audit</a>
+      <button className="quick-action-btn" onClick={() => onAction('tools')}>📊 Check Usage</button>
+      <a className="quick-action-btn" href="/data/business-metrics.json" target="_blank" rel="noopener noreferrer">🧠 View Intel</a>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════
 // HELPER COMPONENTS
 // ═══════════════════════════════════════════════════════════
@@ -724,6 +665,22 @@ function StatCard({ icon, label, value, subtext }: {
   value: string | number
   subtext: string
 }) {
+  const numericValue = typeof value === 'number' ? value : Number(String(value).replace(/[^0-9.-]/g, ''))
+  const hasNumber = !Number.isNaN(numericValue) && String(value).match(/[0-9]/)
+  const [display, setDisplay] = useState(hasNumber ? 0 : 0)
+
+  useEffect(() => {
+    if (!hasNumber) return
+    const target = numericValue
+    const step = Math.max(1, Math.ceil(Math.abs(target - display) / 20))
+    const i = setInterval(() => {
+      setDisplay(prev => (prev < target ? Math.min(target, prev + step) : Math.max(target, prev - step)))
+    }, 22)
+    return () => clearInterval(i)
+  }, [numericValue, hasNumber])
+
+  const shown = hasNumber ? String(value).replace(/[0-9][0-9.,]*/, Math.round(display).toLocaleString()) : String(value)
+
   return (
     <div className="stat-card">
       <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
@@ -731,7 +688,7 @@ function StatCard({ icon, label, value, subtext }: {
         <span>{label}</span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="stat-value">{value}</span>
+        <span className="stat-value">{shown}</span>
       </div>
       <p className="text-xs text-zinc-500 mt-1">{subtext}</p>
     </div>
