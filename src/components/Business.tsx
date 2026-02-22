@@ -136,10 +136,10 @@ export function Business() {
           <span>💰</span> Monthly Revenue Goal
         </div>
         <div className="space-y-4">
-          <div className="flex items-end justify-between">
+          <div className="flex items-end justify-between flex-wrap gap-2">
             <div>
               <p className="text-sm text-zinc-400">Current Month Progress</p>
-              <p className="text-4xl font-bold gradient-text">
+              <p className="text-2xl sm:text-4xl font-bold gradient-text">
                 ${metrics.goal.total.toLocaleString()}
               </p>
             </div>

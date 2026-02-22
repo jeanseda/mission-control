@@ -191,24 +191,24 @@ function App() {
   ]
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto fade-in">
+    <div className="min-h-screen p-3 sm:p-4 md:p-8 max-w-7xl mx-auto fade-in">
       {/* Header */}
-      <header className="mb-8">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <span className="text-5xl lobster-float">🦞</span>
+      <header className="mb-6 md:mb-8">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 md:gap-4">
+            <span className="text-3xl sm:text-4xl md:text-5xl lobster-float">🦞</span>
             <div>
-              <h1 className="text-3xl font-bold">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
                 <span className="gradient-text">Mission Control</span>
               </h1>
-              <p className="text-zinc-500 text-sm mt-1">
+              <p className="text-zinc-500 text-xs sm:text-sm mt-1">
                 {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                <span className="mx-2">•</span>
+                <span className="mx-1 sm:mx-2">•</span>
                 <span className="mono">{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button 
               onClick={cycleTheme}
               className="theme-toggle"
@@ -221,9 +221,9 @@ function App() {
               <span className="text-sm text-zinc-400">System Online</span>
             </div>
             {usage && (
-              <div className="card px-4 py-2">
+              <div className="card px-3 py-1.5 sm:px-4 sm:py-2">
                 <span className="text-xs text-zinc-400">Usage: </span>
-                <span className={`text-sm font-bold mono ${
+                <span className={`text-xs sm:text-sm font-bold mono ${
                   usage.weekly_all_models.percent_used > 80 ? 'text-red-400' :
                   usage.weekly_all_models.percent_used > 50 ? 'text-yellow-400' :
                   'text-green-400'
@@ -237,26 +237,26 @@ function App() {
       </header>
 
       {/* Mission Statement */}
-      <div className="card mission-card mb-8">
-        <div className="flex items-start gap-4">
-          <span className="text-2xl">🎯</span>
+      <div className="card mission-card mb-6 md:mb-8">
+        <div className="flex items-start gap-3 md:gap-4">
+          <span className="text-xl md:text-2xl">🎯</span>
           <div>
-            <p className="text-xs uppercase tracking-wider text-orange-400 font-medium mb-2">Mission Statement</p>
-            <p className="text-lg leading-relaxed mission-text">"{missionStatement}"</p>
+            <p className="text-xs uppercase tracking-wider text-orange-400 font-medium mb-1 md:mb-2">Mission Statement</p>
+            <p className="text-sm sm:text-base md:text-lg leading-relaxed mission-text">"{missionStatement}"</p>
           </div>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="tab-nav mb-8 w-fit">
+      <div className="tab-nav mb-6 md:mb-8 w-full md:w-fit overflow-x-auto scrollbar-hide">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`tab ${activeTab === tab.id ? 'active' : ''}`}
+            className={`tab min-h-[44px] min-w-[44px] ${activeTab === tab.id ? 'active' : ''}`}
           >
-            <span className="mr-2">{tab.icon}</span>
-            {tab.label}
+            <span className="mr-1 sm:mr-2">{tab.icon}</span>
+            <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -356,7 +356,7 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
   return (
     <div className="space-y-6">
       {/* Quick Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard icon="💰" label="MRR" value="$0" subtext="early days" />
         <StatCard icon="👥" label="Active Clients" value="1" subtext="onboarding" />
         <StatCard icon="⚙️" label="Cron Jobs" value={activeJobs} subtext="running" />
@@ -371,7 +371,7 @@ function OverviewTab({ cronJobs, boardTasks, usage, loading }: {
       </div>
 
       {/* Main Grid */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
         {/* Activity Feed - Last 10 cron results */}
         <div className="md:col-span-2 space-y-4">
           <div className="card">
@@ -578,7 +578,7 @@ function AgentsTab({ cronJobs }: { cronJobs: CronJob[] }) {
   return (
     <div className="space-y-6">
       {/* Agent Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {agents.map(agent => (
           <div key={agent.name} className="card">
             <div className="flex items-start justify-between mb-4">
@@ -759,7 +759,7 @@ function formatRelativeTime(ms: number): string {
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[1,2,3,4].map(i => (
           <div key={i} className="skeleton h-24 rounded-xl" />
         ))}
@@ -781,203 +781,99 @@ function LoadingSkeleton() {
 // TOOLS TAB - Skills & Tools Store
 // ═══════════════════════════════════════════════════════════
 
-interface Skill {
-  name: string
-  description: string
-  path: string
-  scripts: string[]
-  category: 'skill' | 'script' | 'agent-tool'
-  hasVenv: boolean
-  createdDate: string
-}
-
 function ToolsTab() {
-  const [skills, setSkills] = useState<Skill[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'skill' | 'script' | 'agent-tool'>('all')
-  const [search, setSearch] = useState('')
-
-  useEffect(() => {
-    loadSkills()
-  }, [])
-
-  const loadSkills = async () => {
-    try {
-      const res = await fetch('/api/skills')
-      const data = await res.json()
-      setSkills(data.skills || [])
-    } catch (e) {
-      console.error('Failed to load skills:', e)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filteredSkills = skills.filter(skill => {
-    const matchesFilter = filter === 'all' || skill.category === filter
-    const matchesSearch = search === '' || 
-      skill.name.toLowerCase().includes(search.toLowerCase()) ||
-      skill.description.toLowerCase().includes(search.toLowerCase())
-    return matchesFilter && matchesSearch
-  })
-
-  const getIcon = (category: string) => {
-    switch (category) {
-      case 'skill': return '📦'
-      case 'script': return '🔧'
-      case 'agent-tool': return '🤖'
-      default: return '🛠️'
-    }
-  }
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'skill': return 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-      case 'script': return 'bg-orange-500/15 text-orange-400 border-orange-500/30'
-      case 'agent-tool': return 'bg-purple-500/15 text-purple-400 border-purple-500/30'
-      default: return 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30'
-    }
-  }
-
-  const comingSoon = [
-    { name: 'Gmail Integration', description: 'Send and receive emails via Gmail API', icon: '📧' },
-    { name: 'Google Calendar', description: 'Manage calendar events and schedules', icon: '📅' },
-    { name: 'Receipt Scanner', description: 'OCR and parse receipts automatically', icon: '🧾' },
-    { name: 'Telegram Bot', description: 'Custom Telegram bot integration', icon: '✈️' },
+  const customSkills = [
+    {
+      name: 'youtube-transcript',
+      icon: '🎬',
+      description: 'Extracts YouTube video transcripts. Python venv + youtube-transcript-api.',
+      path: 'skills/youtube-transcript/',
+      status: 'working' as const,
+      statusNote: 'Working',
+      tags: ['python', 'venv', 'youtube'],
+    },
+    {
+      name: 'tiktok-trends',
+      icon: '📈',
+      description: 'Researches trending topics on TikTok, Google Trends, and Twitter for merch opportunities.',
+      path: 'skills/tiktok-trends/',
+      status: 'working' as const,
+      statusNote: 'Google Trends + Twitter working. TikTok Creative Center needs browser upgrade.',
+      tags: ['python', 'venv', 'trends', 'merch'],
+    },
+    {
+      name: '#ideas research pipeline',
+      icon: '🔍',
+      description: 'Auto-researches URLs dropped in Discord #ideas channel. Also works on-demand in WhatsApp ("investiga esto" + link).',
+      path: 'agents/research-pipeline/',
+      status: 'working' as const,
+      statusNote: 'Working',
+      tags: ['discord', 'whatsapp', 'research', 'auto'],
+    },
   ]
 
-  if (loading) {
-    return <LoadingSkeleton />
-  }
+  const builtInSkills = [
+    { name: 'weather', icon: '🌤️', description: 'Get current weather and forecasts for any location.' },
+    { name: 'github', icon: '🐙', description: 'Interact with GitHub repos, issues, PRs, and more.' },
+    { name: 'nano-pdf', icon: '📄', description: 'Extract text and data from PDF documents.' },
+    { name: 'video-frames', icon: '🎞️', description: 'Extract frames and thumbnails from video files.' },
+    { name: 'web-search', icon: '🔎', description: 'Search the web via Brave Search API.' },
+    { name: 'web-fetch', icon: '🌐', description: 'Fetch and extract readable content from URLs.' },
+    { name: 'browser', icon: '🖥️', description: 'Full browser automation and control.' },
+    { name: 'tts', icon: '🔊', description: 'Text-to-speech via ElevenLabs.' },
+    { name: 'image', icon: '🖼️', description: 'Analyze images with vision models.' },
+    { name: 'nodes', icon: '📱', description: 'Control paired mobile/desktop nodes (camera, screen, location).' },
+  ]
 
   return (
-    <div className="space-y-6">
-      {/* Header & Search */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Tools & Skills</h2>
-          <p className="text-zinc-500 text-sm mt-1">
-            {filteredSkills.length} {filter === 'all' ? 'total' : filter} tools available
-          </p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <input
-            type="text"
-            placeholder="Search tools..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 rounded-lg border border-zinc-700 bg-zinc-900/50 text-sm focus:border-orange-500 outline-none min-w-[200px]"
-          />
-          
-          <div className="flex gap-2">
-            {['all', 'skill', 'script', 'agent-tool'].map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f as any)}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  filter === f 
-                    ? 'bg-orange-500 text-white' 
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                }`}
-              >
-                {f === 'all' ? 'All' : f === 'agent-tool' ? 'Agent' : f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
-            ))}
-          </div>
+    <div className="space-y-8">
+      {/* Custom Skills */}
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold mb-1">Custom Skills</h2>
+        <p className="text-zinc-500 text-sm mb-4">Skills we built and maintain</p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {customSkills.map(skill => (
+            <div key={skill.name} className="card group hover:scale-[1.02] transition-transform">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center text-xl sm:text-2xl shrink-0">
+                    {skill.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-base sm:text-lg truncate">{skill.name}</h3>
+                    <p className="text-xs text-zinc-500 truncate">{skill.path}</p>
+                  </div>
+                </div>
+                <div className="status-dot success shrink-0 mt-1" title="Working" />
+              </div>
+              
+              <p className="text-sm text-zinc-400 mb-3">{skill.description}</p>
+              
+              {skill.statusNote !== 'Working' && (
+                <p className="text-xs text-yellow-400/80 mb-3">⚠️ {skill.statusNote}</p>
+              )}
+
+              <div className="flex flex-wrap gap-1.5 pt-3 border-t border-zinc-800">
+                <span className="badge badge-success">✅ active</span>
+                {skill.tags.map(tag => (
+                  <span key={tag} className="tag-pill text-[0.65rem]">{tag}</span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Tools Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredSkills.map(skill => (
-          <div key={skill.path} className="card group hover:scale-[1.02] transition-transform">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center text-2xl">
-                  {getIcon(skill.category)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-lg truncate">{skill.name}</h3>
-                  <p className="text-xs text-zinc-500 truncate">{skill.path}</p>
-                </div>
-              </div>
-              {skill.scripts.length > 0 && (
-                <div className="status-dot success" title="Functional" />
-              )}
-            </div>
-            
-            <p className="text-sm text-zinc-400 mb-4 line-clamp-2">
-              {skill.description}
-            </p>
-            
-            <div className="flex flex-wrap gap-2 mb-4">
-              <span className={`badge ${getCategoryColor(skill.category)}`}>
-                {skill.category}
-              </span>
-              {skill.hasVenv && (
-                <span className="badge bg-green-500/15 text-green-400 border-green-500/30">
-                  venv
-                </span>
-              )}
-              {skill.scripts.length > 0 && (
-                <span className="badge badge-neutral">
-                  {skill.scripts.length} {skill.scripts.length === 1 ? 'script' : 'scripts'}
-                </span>
-              )}
-            </div>
-            
-            {skill.scripts.length > 0 && (
-              <div className="pt-3 border-t border-zinc-800">
-                <p className="text-xs text-zinc-500 mb-1">Scripts:</p>
-                <div className="flex flex-wrap gap-1">
-                  {skill.scripts.slice(0, 3).map(script => (
-                    <span key={script} className="tag-pill mono text-[0.65rem]">
-                      {script}
-                    </span>
-                  ))}
-                  {skill.scripts.length > 3 && (
-                    <span className="tag-pill text-[0.65rem]">
-                      +{skill.scripts.length - 3} more
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            <div className="pt-3 border-t border-zinc-800 mt-3">
-              <p className="text-xs text-zinc-600">
-                Created: {new Date(skill.createdDate).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredSkills.length === 0 && (
-        <div className="card text-center py-12">
-          <p className="text-zinc-500">No tools found matching your criteria</p>
-        </div>
-      )}
-
-      {/* Coming Soon Section */}
-      <div className="mt-12">
-        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <span>🚀</span> Coming Soon
-        </h3>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {comingSoon.map(tool => (
-            <div key={tool.name} className="card opacity-50 cursor-not-allowed">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-xl">
-                  {tool.icon}
-                </div>
-                <h4 className="font-semibold text-sm">{tool.name}</h4>
-              </div>
-              <p className="text-xs text-zinc-500">{tool.description}</p>
-              <div className="mt-3 pt-3 border-t border-zinc-800">
-                <span className="badge badge-neutral text-[0.65rem]">In Development</span>
-              </div>
+      {/* Built-in Skills */}
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold mb-1">Built-in Skills</h2>
+        <p className="text-zinc-500 text-sm mb-4">Provided by OpenClaw out of the box</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {builtInSkills.map(skill => (
+            <div key={skill.name} className="card text-center py-4 px-3">
+              <div className="text-2xl sm:text-3xl mb-2">{skill.icon}</div>
+              <h4 className="font-semibold text-sm mb-1">{skill.name}</h4>
+              <p className="text-xs text-zinc-500 line-clamp-2">{skill.description}</p>
             </div>
           ))}
         </div>

@@ -252,6 +252,7 @@ body::before {
   font-weight: 600;
   padding: 0.625rem 1.25rem;
   border-radius: 8px;
+  min-height: 44px;
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -295,7 +296,7 @@ body::before {
 }
 
 .tab {
-  padding: 0.625rem 1.25rem;
+  padding: 0.625rem 1rem;
   border-radius: 8px;
   border: none;
   background: transparent;
@@ -306,6 +307,9 @@ body::before {
   white-space: nowrap;
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .tab:hover {
@@ -343,6 +347,7 @@ body::before {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem;
+  min-height: 44px;
   border-radius: 8px;
   transition: background 0.2s ease;
   gap: 1rem;
@@ -434,10 +439,19 @@ body::before {
   animation: fadeIn 0.4s ease-out;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .tab-nav {
-    overflow-x: scroll;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
   
@@ -446,7 +460,26 @@ body::before {
   }
   
   .stat-value {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
+  }
+  
+  .card:hover {
+    transform: none;
+  }
+  
+  .stat-card:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-value {
+    font-size: 1.1rem;
+  }
+  
+  .card {
+    padding: 0.875rem;
+    border-radius: 12px;
   }
 }
 
