@@ -208,9 +208,23 @@
     ]
   },
   {
+    "id": "35",
+    "title": "Fix daily-self-audit cron failure",
+    "description": "Cron job 'daily-self-audit' (agent: default) failing with error status. Runs nightly at 10 PM. Need to investigate error logs and fix root cause.",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "Infrastructure",
+    "tags": [
+      "cron",
+      "bugfix",
+      "automation"
+    ],
+    "createdDate": "2026-02-23"
+  },
+  {
     "id": "15",
     "title": "Fix Discord 401 Unauthorized errors",
-    "description": "Discord bot token expired/invalid. Currently affecting: Vic Saturday Escalation (401 error). Most jobs now working (Morning Brief, Fitness briefs recovered), but Vic-related jobs still failing. Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Last checked: Feb 22 12 PM - partial recovery, Vic jobs still broken.",
+    "description": "Discord bot token expired/invalid. Currently affecting: Vic Saturday Escalation, Vic Friday Deadline Reminder (401 errors). Most jobs now working (Morning Brief, Fitness briefs recovered), but Vic-related jobs still failing. Fix: (1) Go to https://discord.com/developers/applications, (2) Select bot application, (3) Bot tab → Reset Token, (4) Copy new token, (5) Run: openclaw gateway config.patch and update channels.discord.token, (6) Gateway will auto-restart. Last checked: Feb 23 12 AM - Vic jobs still broken.",
     "status": "in_progress",
     "priority": "high",
     "project": "OpenClaw",
