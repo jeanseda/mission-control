@@ -1,5 +1,105 @@
 [
   {
+    "id": "42",
+    "title": "Review and Post X Drafts for GEO Audit",
+    "description": "3 drafts in geo-audit/content/x-posts-v2.md. Update $497 to $97. Post from personal account on X and LinkedIn.",
+    "status": "todo",
+    "priority": "high",
+    "project": "GEO Audit",
+    "tags": [
+      "marketing",
+      "content"
+    ],
+    "createdDate": "2026-02-25",
+    "dueDate": "2026-02-25"
+  },
+  {
+    "id": "41",
+    "title": "Killed 6 Non-Core Products",
+    "description": "Moved QA Engineer, Business Intel, Onboarding, Client Dashboard, AI Agents Landing, Billing to archive/. Focused core portfolio on GEO Audit + Maldo.",
+    "status": "done",
+    "priority": "medium",
+    "project": "Portfolio Optimization",
+    "tags": [
+      "business",
+      "focus"
+    ],
+    "createdDate": "2026-02-24",
+    "completedDate": "2026-02-24"
+  },
+  {
+    "id": "40",
+    "title": "Fix Nightly Autonomous Work cron error",
+    "description": "Cron job 'Nightly Autonomous Work' failed with error status on Feb 24 11 PM. Investigate logs and fix root cause.",
+    "status": "in_progress",
+    "priority": "medium",
+    "project": "Infrastructure",
+    "tags": [
+      "cron",
+      "bugfix"
+    ],
+    "createdDate": "2026-02-25"
+  },
+  {
+    "id": "39",
+    "title": "Renew Passport Expedited",
+    "description": "Passport expires Aug 11, 2026. Need 6 months validity for cruises. Renew via DS-82 + expedite (~$230, 2-3 weeks) before March 21 cruise.",
+    "status": "todo",
+    "priority": "high",
+    "project": "Personal",
+    "tags": [
+      "personal",
+      "urgent"
+    ],
+    "createdDate": "2026-02-25",
+    "dueDate": "2026-03-21"
+  },
+  {
+    "id": "38",
+    "title": "Maldo Service Evolution",
+    "description": "Evolved to Research + Monitor + Content operations partner ($150-500/mo tiers). Added Weekly Market Brief cron (Mon-Fri 8 AM PR). Created full PLAYBOOK.md for replication.",
+    "status": "done",
+    "priority": "high",
+    "project": "Maldo Distributors",
+    "tags": [
+      "client",
+      "revenue",
+      "automation"
+    ],
+    "createdDate": "2026-02-24",
+    "completedDate": "2026-02-24"
+  },
+  {
+    "id": "37",
+    "title": "GEO Audit Bug Fixes and Enhancements",
+    "description": "Fixed 4 critical bugs (report persistence, payment delivery, competitor detection, query templates). Upgraded recommendations to 7-layer AEO framework. Updated pricing to $97 full report + $297/mo monitoring. Updated site, Stripe, emails.",
+    "status": "done",
+    "priority": "high",
+    "project": "GEO Audit",
+    "tags": [
+      "mvp",
+      "bugfix",
+      "enhancement"
+    ],
+    "createdDate": "2026-02-24",
+    "completedDate": "2026-02-24"
+  },
+  {
+    "id": "36",
+    "title": "Slideshow Engine Skill Built",
+    "description": "Full pipeline: audit JSON → AI images → text overlays → video. Includes generate.py, compose.py (multiple styles), to_video.py, voice.py. Tested end-to-end with Carbone and Nike audits. Spawned 5 Codex agents for improvements.",
+    "status": "done",
+    "priority": "medium",
+    "project": "Content Engine",
+    "tags": [
+      "skills",
+      "automation",
+      "content"
+    ],
+    "createdDate": "2026-02-24",
+    "completedDate": "2026-02-24"
+  },
+  {
     "id": "34",
     "title": "Daily Discovery - Daily AI news posts",
     "description": "Daily AI discovery/news posts to Discord via cron job.",
@@ -74,7 +174,7 @@
   {
     "id": "29",
     "title": "Maldo Distributors - Daily price tracking (active)",
-    "description": "Active client. Automated daily price tracking running (cron: Maldo Daily Price Check).",
+    "description": "Active client. Automated daily price tracking running (cron: Maldo Daily Price Check). Evolved to Research + Monitor + Content operations partner ($150-500/mo tiers). Added Weekly Market Brief cron (Mon-Fri 8 AM PR). Full PLAYBOOK.md documented.",
     "status": "in_progress",
     "priority": "high",
     "project": "Maldo Distributors",
@@ -88,7 +188,7 @@
   {
     "id": "28",
     "title": "GEO Audit SaaS - Launch",
-    "description": "GEO Audit SaaS launching Monday Feb 24 (go-live + public posts).",
+    "description": "GEO Audit SaaS launching Monday Feb 24 (go-live + public posts). Repriced to $97 full report + $297/mo monitoring (coming soon).",
     "status": "in_progress",
     "priority": "critical",
     "project": "GEO Audit",
@@ -98,12 +198,12 @@
       "marketing"
     ],
     "createdDate": "2026-02-22",
-    "dueDate": "2026-02-24"
+    "dueDate": "2026-02-25"
   },
   {
     "id": "22",
     "title": "GEO Audit MVP",
-    "description": "AI Visibility Audit tool. Checks how businesses appear in ChatGPT/Claude/Perplexity. Free score → paid audit ($497) → monthly monitoring ($197/mo)",
+    "description": "AI Visibility Audit tool. Checks how businesses appear in ChatGPT/Claude/Perplexity. Free score → paid audit ($97) → monthly monitoring ($297/mo)",
     "status": "in_progress",
     "priority": "critical",
     "project": "GEO Audit",
@@ -117,8 +217,8 @@
   {
     "id": "23",
     "title": "GEO Audit Landing Page",
-    "description": "Landing page for GEO Audit service with free score tool and pricing",
-    "status": "in_progress",
+    "description": "Landing page for GEO Audit service with free score tool and pricing. Updated with new pricing and deployed.",
+    "status": "done",
     "priority": "critical",
     "project": "GEO Audit",
     "tags": [
@@ -126,7 +226,8 @@
       "mvp"
     ],
     "createdDate": "2026-02-22",
-    "dueDate": "2026-02-23"
+    "dueDate": "2026-02-23",
+    "completedDate": "2026-02-24"
   },
   {
     "id": "24",
@@ -140,7 +241,7 @@
       "marketing"
     ],
     "createdDate": "2026-02-22",
-    "dueDate": "2026-02-24"
+    "dueDate": "2026-02-25"
   },
   {
     "id": "25",
@@ -159,7 +260,7 @@
   {
     "id": "26",
     "title": "GEO Monthly Monitoring",
-    "description": "Recurring revenue: $197/mo per client for ongoing AI visibility monitoring",
+    "description": "Recurring revenue: $297/mo per client for ongoing AI visibility monitoring",
     "status": "planned",
     "priority": "high",
     "project": "Revenue Pipeline",
@@ -211,7 +312,7 @@
     "id": "35",
     "title": "Fix daily-self-audit cron failure",
     "description": "Cron job 'daily-self-audit' (agent: default) failing with error status. Runs nightly at 10 PM. Need to investigate error logs and fix root cause.",
-    "status": "in_progress",
+    "status": "done",
     "priority": "medium",
     "project": "Infrastructure",
     "tags": [
@@ -219,7 +320,8 @@
       "bugfix",
       "automation"
     ],
-    "createdDate": "2026-02-23"
+    "createdDate": "2026-02-23",
+    "completedDate": "2026-02-25"
   },
   {
     "id": "15",
@@ -241,7 +343,7 @@
     "id": "21",
     "title": "Fix GitHub Workspace Backup timeout",
     "description": "Nightly GitHub backup cron job timing out. Attempted fix (300s timeout) did not resolve the issue - still timing out. Job shows 300s in config but execution fails with 'cron: job execution timed out'. Need different approach - possibly: (1) Split git operations, (2) Add git config for timeout handling, (3) Use git add with pathspec instead of -A, (4) Optimize large files with .gitattributes. Last failure: Feb 22 11 PM (consecutive errors: 1). Workspace is still backed up via Mission Control daily nightly job, so no data loss risk. Status: Active investigation.",
-    "status": "in_progress",
+    "status": "done",
     "priority": "high",
     "project": "Infrastructure",
     "tags": [
@@ -249,7 +351,8 @@
       "backup",
       "timeout"
     ],
-    "createdDate": "2026-02-22"
+    "createdDate": "2026-02-22",
+    "completedDate": "2026-02-25"
   },
   {
     "id": "27",
@@ -512,7 +615,7 @@
     "completedDate": "2026-02-20"
   },
   {
-    "id": "18",
+    "id": "43",
     "title": "Fix docs display on production",
     "description": "Docs tab was empty on Render because workspace files aren't synced. Added graceful degradation: shows friendly empty state on prod, works fully on localhost.",
     "status": "done",
