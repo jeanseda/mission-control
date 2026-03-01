@@ -1,1070 +1,722 @@
-import { useState, useEffect } from 'react'
-import { KanbanBoard, AddTaskModal } from './components/Kanban'
-import { Business } from './components/Business'
-import { XPBar, type XPData } from './components/XPBar'
-import { Achievements, type Achievement } from './components/Achievements'
-import { StatsCard } from './components/StatsCard'
-import { ActivityFeed } from './components/ActivityFeed'
-import { AgentCards } from './components/AgentCards'
-import type { KanbanTask } from './components/Kanban'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { LiveOps } from './components/LiveOps'
 
-// Types
-interface CronJob {
+type TabKey = 'overview' | 'live-ops' | 'pipeline' | 'agents' | 'crons'
+
+type StatusData = {
+  gateway: boolean
+  whatsapp: boolean
+  ollama: boolean
+  checkedAt?: string
+}
+
+type RevenuePayment = {
+  amount: number
+  businessName: string
+  timestamp: string
+}
+
+type RevenueData = {
+  today: number
+  week: number
+  month: number
+  payments: RevenuePayment[]
+  totalCount: number
+}
+
+type Lead = {
+  name: string
+  email: string
+  source: string
+  createdAt: string | null
+}
+
+type LeadsData = {
+  leads: Lead[]
+  count: number
+}
+
+type AuditResult = {
+  id: string
+  businessName: string
+  score: number
+  timestamp: string
+}
+
+type AuditsData = {
+  total: number
+  today: number
+  recent: AuditResult[]
+}
+
+type CronJob = {
   id: string
   name: string
-  schedule: string | { kind?: string; expr?: string; everyMs?: number; at?: string; tz?: string }
-  enabled?: boolean
-  state?: { 
-    nextRunAtMs?: number
-    lastRunAtMs?: number
-    lastStatus?: string
-    lastError?: string
-    lastDurationMs?: number
+  enabled: boolean
+  status: 'ok' | 'error' | 'running' | 'idle' | 'disabled'
+  lastRunAt: string | null
+  nextRunAt: string | null
+  lastError: string | null
+}
+
+type CronsData = {
+  jobs: CronJob[]
+  count: number
+  source: 'cli' | 'file'
+}
+
+type SystemData = {
+  cpu: {
+    usedPercent: number
+    loadAvg: number[]
+    cores: number
   }
+  memory: {
+    usedPercent: number
+    usedGb: number
+    totalGb: number
+  }
+  disk: {
+    usedPercent: number
+    usedGb: number
+    totalGb: number
+  }
+  uptime: {
+    seconds: number
+    text: string
+  }
+  activeSessions: number
+  draftsPending: number
 }
 
-interface UsageData {
-  plan: string
-  current_session: { percent_used: number; resets_in: string }
-  weekly_all_models: { percent_used: number; resets: string }
-  weekly_sonnet: { percent_used: number; resets: string }
-  lastUpdated: string
+type ActivityEvent = {
+  source: string
+  timestamp: string | null
+  line: string
 }
 
-type TabType = 'overview' | 'board' | 'agents' | 'business' | 'stats' | 'tools'
-type ThemeMode = 'dark' | 'light' | 'system'
+type ActivityData = {
+  events: ActivityEvent[]
+  count: number
+}
 
-interface BusinessMetricsSnapshot {
-  goal?: { total?: number }
-  history?: Array<{ amount?: number }>
+const tabs: Array<{ key: TabKey; label: string; eyebrow: string }> = [
+  { key: 'overview', label: 'Overview', eyebrow: 'Command' },
+  { key: 'live-ops', label: 'Live Ops', eyebrow: 'Realtime' },
+  { key: 'pipeline', label: 'Pipeline', eyebrow: 'Revenue' },
+  { key: 'agents', label: 'Agents', eyebrow: 'Fleet' },
+  { key: 'crons', label: 'Crons', eyebrow: 'Schedulers' }
+]
+
+const fetchJson = async <T,>(url: string): Promise<T> => {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Request failed for ${url}`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+const currency = (value: number): string =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(value)
+
+const shortDate = (value: string | null | undefined): string => {
+  if (!value) return 'No data'
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'No data'
+
+  return parsed.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
+const relativeTime = (value: string | null | undefined): string => {
+  if (!value) return 'Never'
+
+  const parsed = new Date(value).getTime()
+  if (Number.isNaN(parsed)) return 'Never'
+
+  const delta = Date.now() - parsed
+  const minutes = Math.max(0, Math.floor(delta / 60000))
+
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+const statusDotClass = (value: boolean): string => (value ? 'bg-emerald-400 live-dot' : 'bg-rose-500')
+
+const cronBadgeTone = (value: CronJob['status']): string => {
+  if (value === 'ok') return 'badge-success'
+  if (value === 'running') return 'border-amber-400/20 bg-amber-400/10 text-amber-200'
+  if (value === 'idle') return 'badge-info'
+  if (value === 'disabled') return 'badge-neutral'
+  return 'badge-danger'
+}
+
+function SectionCard({
+  title,
+  meta,
+  children,
+  className = ''
+}: {
+  title: string
+  meta?: string
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <section className={`panel ${className}`}>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <p className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-[11px] font-semibold uppercase tracking-[0.26em] text-transparent">
+            {title}
+          </p>
+        </div>
+        {meta ? <span className="font-mono text-[11px] text-white/45">{meta}</span> : null}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function StatPill({
+  label,
+  value,
+  detail
+}: {
+  label: string
+  value: string
+  detail?: string
+}) {
+  return (
+    <div className="rounded-3xl border border-white/5 bg-white/[0.03] px-4 py-3 backdrop-blur-xl">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">{label}</p>
+      <p className="mt-2 font-mono text-xl font-semibold text-white">{value}</p>
+      {detail ? <p className="mt-1 text-xs text-white/45">{detail}</p> : null}
+    </div>
+  )
+}
+
+function MetricLine({
+  label,
+  value,
+  tone = 'blue'
+}: {
+  label: string
+  value: string
+  tone?: 'blue' | 'green' | 'yellow' | 'red'
+}) {
+  const toneClass =
+    tone === 'green'
+      ? 'from-emerald-400/25 to-emerald-400/0 text-emerald-200'
+      : tone === 'yellow'
+        ? 'from-amber-400/25 to-amber-400/0 text-amber-200'
+        : tone === 'red'
+          ? 'from-rose-400/25 to-rose-400/0 text-rose-200'
+          : 'from-indigo-400/25 to-indigo-400/0 text-indigo-100'
+
+  return (
+    <div className={`rounded-2xl border border-white/5 bg-gradient-to-r ${toneClass} px-4 py-3`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs uppercase tracking-[0.16em] text-white/45">{label}</span>
+        <span className="font-mono text-sm font-medium">{value}</span>
+      </div>
+    </div>
+  )
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('overview')
-  const [cronJobs, setCronJobs] = useState<CronJob[]>([])
-  const [boardTasks, setBoardTasks] = useState<KanbanTask[]>([])
-  const [usage, setUsage] = useState<UsageData | null>(null)
-  const [xpData, setXpData] = useState<XPData | null>(null)
-  const [achievements, setAchievements] = useState<Achievement[]>([])
-  const [businessMetrics, setBusinessMetrics] = useState<BusinessMetricsSnapshot | null>(null)
-  const [agentsData, setAgentsData] = useState<any>(null)
-  const [showAddTask, setShowAddTask] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [now, setNow] = useState(() => new Date())
   const [loading, setLoading] = useState(true)
-  const [currentTime, setCurrentTime] = useState(new Date())
-  
-  // Theme state with system preference support
-  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('themeMode')
-      if (saved) return saved as ThemeMode
-    }
-    return 'system'
+  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<StatusData>({ gateway: false, whatsapp: false, ollama: false })
+  const [revenue, setRevenue] = useState<RevenueData>({ today: 0, week: 0, month: 0, payments: [], totalCount: 0 })
+  const [leads, setLeads] = useState<LeadsData>({ leads: [], count: 0 })
+  const [audits, setAudits] = useState<AuditsData>({ total: 0, today: 0, recent: [] })
+  const [crons, setCrons] = useState<CronsData>({ jobs: [], count: 0, source: 'file' })
+  const [system, setSystem] = useState<SystemData>({
+    cpu: { usedPercent: 0, loadAvg: [0, 0, 0], cores: 0 },
+    memory: { usedPercent: 0, usedGb: 0, totalGb: 0 },
+    disk: { usedPercent: 0, usedGb: 0, totalGb: 0 },
+    uptime: { seconds: 0, text: '0m' },
+    activeSessions: 0,
+    draftsPending: 0
   })
+  const [activity, setActivity] = useState<ActivityData>({ events: [], count: 0 })
 
-  const [actualTheme, setActualTheme] = useState<'dark' | 'light'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('themeMode')
-      if (saved === 'dark' || saved === 'light') return saved
-      // Use system preference
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-        return 'light'
-      }
-    }
-    return 'dark'
-  })
-
-  // Track last updated timestamps for data freshness
-  const [lastUpdated, setLastUpdated] = useState<{
-    cron?: string
-    board?: string
-    usage?: string
-    business?: string
-  }>({})
-
-  const missionStatement = "Build an autonomous organization of AI agents that produces value 24/7 — tools, agents, and hardware that work for me while I sleep."
-
-  // Theme management
   useEffect(() => {
-    // Apply theme class to document
-    document.documentElement.setAttribute('data-theme', actualTheme)
-    
-    // If system mode, listen for system preference changes
-    if (themeMode === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-      const handler = (e: MediaQueryListEvent) => {
-        setActualTheme(e.matches ? 'dark' : 'light')
-      }
-      mediaQuery.addEventListener('change', handler)
-      return () => mediaQuery.removeEventListener('change', handler)
-    }
-  }, [themeMode, actualTheme])
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
-  const cycleTheme = () => {
-    const nextMode: ThemeMode = 
-      themeMode === 'dark' ? 'light' :
-      themeMode === 'light' ? 'system' : 'dark'
-    
-    setThemeMode(nextMode)
-    
-    if (nextMode === 'system') {
-      localStorage.removeItem('themeMode')
-      // Set to current system preference
-      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      setActualTheme(isDark ? 'dark' : 'light')
-    } else {
-      localStorage.setItem('themeMode', nextMode)
-      setActualTheme(nextMode)
-    }
-  }
-
-  const getThemeIcon = () => {
-    if (themeMode === 'system') return '💻'
-    return themeMode === 'dark' ? '🌙' : '☀️'
-  }
-
-  // Load data
   useEffect(() => {
-    loadData()
-    
-    // Auto-refresh every 30 seconds for overview tab
-    const dataInterval = setInterval(() => {
-      if (activeTab === 'overview') {
-        loadData()
+    let cancelled = false
+
+    const load = async () => {
+      try {
+        const [nextStatus, nextRevenue, nextLeads, nextAudits, nextCrons, nextSystem, nextActivity] = await Promise.all([
+          fetchJson<StatusData>('/api/status'),
+          fetchJson<RevenueData>('/api/revenue'),
+          fetchJson<LeadsData>('/api/leads'),
+          fetchJson<AuditsData>('/api/audits'),
+          fetchJson<CronsData>('/api/crons'),
+          fetchJson<SystemData>('/api/system'),
+          fetchJson<ActivityData>('/api/activity')
+        ])
+
+        if (cancelled) return
+
+        setStatus(nextStatus)
+        setRevenue(nextRevenue)
+        setLeads(nextLeads)
+        setAudits(nextAudits)
+        setCrons(nextCrons)
+        setSystem(nextSystem)
+        setActivity(nextActivity)
+        setError(null)
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : 'Unable to load dashboard')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
-    }, 30000)
-    
-    const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000)
-    
+    }
+
+    void load()
+    const poller = window.setInterval(() => void load(), 30000)
+
     return () => {
-      clearInterval(dataInterval)
-      clearInterval(timeInterval)
+      cancelled = true
+      window.clearInterval(poller)
     }
-  }, [activeTab])
+  }, [])
 
-  const loadData = async () => {
-    try {
-      const [cronRes, boardRes, usageRes, xpRes, achievementsRes, businessRes, agentsRes] = await Promise.all([
-        fetch('/api/cron'),
-        fetch('/api/board'),
-        fetch('/api/usage'),
-        fetch('/data/xp.json'),
-        fetch('/data/achievements.json'),
-        fetch('/api/business'),
-        fetch('/data/agents.json')
-      ])
-      
-      const cronData = await cronRes.json()
-      const boardData = await boardRes.json()
-      const usageData = await usageRes.json()
-      const xpSeed = await xpRes.json()
-      const achievementsData = await achievementsRes.json()
-      const businessData = businessRes.ok ? await businessRes.json() : null
-      const agentsData = agentsRes.ok ? await agentsRes.json() : null
+  const liveTime = now.toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit'
+  })
 
-      const parsedCronJobs = Array.isArray(cronData) ? cronData : (cronData?.jobs || [])
-      const parsedBoardTasks = Array.isArray(boardData) ? boardData : (boardData?.tasks || [])
-
-      setCronJobs(parsedCronJobs)
-      setBoardTasks(parsedBoardTasks)
-      setUsage(usageData)
-      setAchievements(Array.isArray(achievementsData) ? achievementsData : [])
-      setBusinessMetrics(businessData)
-      setAgentsData(agentsData)
-      setXpData(calculateXP(parsedBoardTasks, parsedCronJobs, businessData, xpSeed))
-      
-      // Track last updated timestamps
-      setLastUpdated({
-        cron: cronData?.lastUpdated,
-        board: boardData?.lastUpdated,
-        usage: usageData?.lastUpdated,
-        business: businessData?.last_updated
-      })
-    } catch (e) {
-      console.error('Load error:', e)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleTaskMove = async (taskId: string, newStatus: KanbanTask['status']) => {
-    try {
-      const updateData: any = { status: newStatus }
-      
-      // If moving to done, add completedDate
-      if (newStatus === 'done') {
-        updateData.completedDate = new Date().toISOString().split('T')[0]
-      }
-      
-      await fetch(`/api/board/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      })
-      
-      setBoardTasks(prev => prev.map(t => 
-        t.id === taskId ? { ...t, ...updateData } : t
-      ))
-    } catch (e) {
-      console.error('Failed to move task:', e)
-    }
-  }
-
-  const handleAddTask = async (task: Omit<KanbanTask, 'id'>) => {
-    try {
-      const res = await fetch('/api/board', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...task,
-          createdDate: new Date().toISOString().split('T')[0]
-        })
-      })
-      const newTask = await res.json()
-      setBoardTasks(prev => [...prev, newTask])
-      setShowAddTask(false)
-    } catch (e) {
-      console.error('Failed to add task:', e)
-    }
-  }
-
-  const tabs = [
-    { id: 'overview' as const, label: 'Overview', icon: '🎯' },
-    { id: 'board' as const, label: 'Board', icon: '📋' },
-    { id: 'agents' as const, label: 'Agents & Cron', icon: '🤖' },
-    { id: 'business' as const, label: 'Business', icon: '💼' },
-    { id: 'stats' as const, label: 'Stats', icon: '🎮' },
-    { id: 'tools' as const, label: 'Tools', icon: '🛠️' },
-  ]
-
-  return (
-    <div className="min-h-screen p-3 sm:p-4 md:p-8 max-w-7xl mx-auto fade-in">
-      {/* Header */}
-      <header className="mb-6 md:mb-8">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3 md:gap-4">
-            <span className="text-3xl sm:text-4xl md:text-5xl lobster-float">🦞</span>
-            <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
-                <span className="gradient-text">Mission Control</span>
-              </h1>
-              <p className="text-zinc-500 text-xs sm:text-sm mt-1">
-                {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                <span className="mx-1 sm:mx-2">•</span>
-                <span className="mono">{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <button 
-              onClick={cycleTheme}
-              className="theme-toggle"
-              title={`Theme: ${themeMode}`}
-            >
-              {getThemeIcon()}
-            </button>
-            <div className="hidden md:flex items-center gap-3 card px-4 py-2">
-              {lastUpdated.cron ? (
-                <>
-                  <FreshnessIndicator timestamp={lastUpdated.cron} label="Data" />
-                  <button 
-                    onClick={() => loadData()} 
-                    className="text-zinc-400 hover:text-orange-400 transition-colors ml-2"
-                    title="Refresh data"
-                  >
-                    🔄
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="status-dot success" />
-                  <span className="text-sm text-zinc-400">System Online</span>
-                </>
-              )}
-            </div>
-            {usage && (
-              <div className="card px-3 py-1.5 sm:px-4 sm:py-2">
-                <span className="text-xs text-zinc-400">Usage: </span>
-                <span className={`text-xs sm:text-sm font-bold mono ${
-                  usage.weekly_all_models.percent_used > 80 ? 'text-red-400' :
-                  usage.weekly_all_models.percent_used > 50 ? 'text-yellow-400' :
-                  'text-green-400'
-                }`}>
-                  {usage.weekly_all_models.percent_used}%
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Mission Statement */}
-      <div className="card mission-card mb-6 md:mb-8">
-        <div className="flex items-start gap-3 md:gap-4">
-          <span className="text-xl md:text-2xl">🎯</span>
-          <div>
-            <p className="text-xs uppercase tracking-wider text-orange-400 font-medium mb-1 md:mb-2">Mission Statement</p>
-            <p className="text-sm sm:text-base md:text-lg leading-relaxed mission-text">"{missionStatement}"</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="tab-nav mb-6 md:mb-8 w-full md:w-fit overflow-x-auto scrollbar-hide">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`tab min-h-[44px] min-w-[44px] ${activeTab === tab.id ? 'active' : ''}`}
-          >
-            <span className="mr-1 sm:mr-2">{tab.icon}</span>
-            <span className="hidden sm:inline">{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div key={activeTab} className="tab-transition">
-        {activeTab === 'overview' && (
-          <OverviewTab 
-            cronJobs={cronJobs} 
-            boardTasks={boardTasks}
-            usage={usage}
-            loading={loading}
-            lastUpdated={lastUpdated}
-          />
-        )}
-        
-        {activeTab === 'board' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Task Board</h2>
-              <button 
-                onClick={() => setShowAddTask(true)}
-                className="btn-primary"
-              >
-                + Add Task
-              </button>
-            </div>
-            <KanbanBoard 
-              tasks={boardTasks} 
-              onTaskMove={handleTaskMove}
-            />
-            <AddTaskModal 
-              isOpen={showAddTask} 
-              onClose={() => setShowAddTask(false)} 
-              onAdd={handleAddTask}
-            />
-          </div>
-        )}
-        
-        {activeTab === 'agents' && (
-          <AgentsTab cronJobs={cronJobs} boardTasks={boardTasks} agents={agentsData?.agents || agentsData || []} lastUpdated={lastUpdated} />
-        )}
-        
-        {activeTab === 'business' && (
-          <Business />
-        )}
-        
-        {activeTab === 'stats' && (
-          <StatsTab
-            boardTasks={boardTasks}
-            cronJobs={cronJobs}
-            xpData={xpData}
-            achievements={achievements}
-            businessMetrics={businessMetrics}
-          />
-        )}
-
-        {activeTab === 'tools' && (
-          <ToolsTab />
-        )}
-      </div>
-
-      <QuickActionsPanel onAction={(tab) => setActiveTab(tab)} />
-
-      {/* Footer */}
-      <footer className="mt-12 text-center">
-        <p className="text-zinc-600 text-sm">
-          <span className="lobster-float inline-block">🦞</span>
-          <span className="mx-2">Max</span>
-          <span className="text-zinc-700">•</span>
-          <span className="mx-2">OpenClaw Mission Control</span>
-          <span className="text-zinc-700">•</span>
-          <span className="mx-2 mono text-xs">{cronJobs.filter(j => j.enabled !== false).length} active jobs</span>
-        </p>
-      </footer>
-    </div>
+  const statusSummary = useMemo(
+    () => [
+      { label: 'Gateway', online: status.gateway },
+      { label: 'WhatsApp', online: status.whatsapp },
+      { label: 'Ollama', online: status.ollama }
+    ],
+    [status]
   )
-}
 
-// ═══════════════════════════════════════════════════════════
-// OVERVIEW TAB - The Money Tab
-// ═══════════════════════════════════════════════════════════
+  const runningCrons = crons.jobs.filter((job) => job.status === 'running').length
+  const healthyServices = statusSummary.filter((item) => item.online).length
 
-function OverviewTab({ cronJobs, boardTasks, usage, loading, lastUpdated }: {
-  cronJobs: CronJob[]
-  boardTasks: KanbanTask[]
-  usage: UsageData | null
-  loading: boolean
-  lastUpdated: {
-    cron?: string
-    board?: string
-    usage?: string
-    business?: string
-  }
-}) {
-  const activeJobs = cronJobs.filter(j => j.enabled !== false).length
-  
-  // Today's wins - tasks completed today
-  const today = new Date().toISOString().split('T')[0]
-  const todayWins = boardTasks.filter(t => t.completedDate === today)
-  
-  // Next 3 scheduled jobs
-  const upcomingJobs = cronJobs
-    .filter(j => j.enabled !== false && j.state?.nextRunAtMs)
-    .sort((a, b) => (a.state!.nextRunAtMs || 0) - (b.state!.nextRunAtMs || 0))
-    .slice(0, 3)
-  
-
-  if (loading) {
-    return <LoadingSkeleton />
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard icon="💰" label="MRR" value="$0" subtext="early days" />
-        <StatCard icon="👥" label="Active Clients" value="1" subtext="onboarding" />
-        <StatCard icon="⚙️" label="Cron Jobs" value={activeJobs} subtext="running" />
-        {usage && (
-          <StatCard 
-            icon="📊" 
-            label="Weekly Usage" 
-            value={`${usage.weekly_all_models.percent_used}%`}
-            subtext={usage.weekly_all_models.resets}
-          />
-        )}
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
-        <div className="md:col-span-2 space-y-4">
-          <ActivityFeed />
-
-          {/* Today's Wins */}
-          {todayWins.length > 0 && (
-            <div className="card accent-border">
-              <div className="card-header flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span>🏆</span> Today's Wins
-                </div>
-                {lastUpdated.board && <FreshnessIndicator timestamp={lastUpdated.board} />}
-              </div>
-              <div className="space-y-2">
-                {todayWins.map(task => (
-                  <div key={task.id} className="item-row">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">✅</span>
-                      <div>
-                        <p className="font-medium">{task.title}</p>
-                        {task.description && (
-                          <p className="text-xs text-zinc-500">{task.description}</p>
-                        )}
-                      </div>
-                    </div>
-                    {task.priority && (
-                      <span className={`badge ${
-                        task.priority === 'critical' ? 'badge-danger' :
-                        task.priority === 'high' ? 'badge-warning' :
-                        'badge-neutral'
-                      }`}>
-                        {task.priority}
-                      </span>
-                    )}
+  const overviewContent = (
+    <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-4 md:grid-cols-2">
+        <SectionCard title="Revenue Lens" meta={`${revenue.totalCount} payments`}>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatPill label="Today" value={currency(revenue.today)} />
+            <StatPill label="Week" value={currency(revenue.week)} />
+            <StatPill label="Month" value={currency(revenue.month)} />
+          </div>
+          <div className="mt-4 space-y-2">
+            {revenue.payments.slice(0, 4).map((payment) => (
+              <div key={`${payment.businessName}-${payment.timestamp}`} className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-white">{payment.businessName}</p>
+                    <p className="mt-1 text-xs text-white/45">{shortDate(payment.timestamp)}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          <ClockNextEventWidget upcomingJobs={upcomingJobs} />
-
-          {/* System Health */}
-          <div className="card">
-            <div className="card-header flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span>💚</span> System Health
-              </div>
-              {lastUpdated.cron && <FreshnessIndicator timestamp={lastUpdated.cron} />}
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <div className="flex items-center gap-2">
-                  <div className="status-dot success" />
-                  <span className="text-sm font-semibold">Agents</span>
-                </div>
-                <span className="text-emerald-400 font-bold">2</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                <div className="flex items-center gap-2">
-                  <div className="status-dot success" />
-                  <span className="text-sm font-semibold">Cron Jobs</span>
-                </div>
-                <span className="text-blue-400 font-bold">{activeJobs}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                <div className="flex items-center gap-2">
-                  <div className="status-dot success" />
-                  <span className="text-sm font-semibold">Projects</span>
-                </div>
-                <span className="text-orange-400 font-bold">4</span>
-              </div>
-            </div>
-          </div>
-
-          {/* External Links */}
-          <div className="card">
-            <div className="card-header">
-              <span>🔗</span> Quick Links
-            </div>
-            <div className="space-y-2">
-              <a 
-                href="https://fitness-dashboard-vite.onrender.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="item-row cursor-pointer group"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">💪</span>
-                  <span className="text-sm group-hover:text-orange-400 transition-colors">
-                    Fitness Dashboard
-                  </span>
-                </div>
-                <span className="text-zinc-500">→</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════
-// AGENTS & CRON TAB
-// ═══════════════════════════════════════════════════════════
-
-function AgentsTab({ cronJobs, boardTasks, lastUpdated, agents }: { 
-  cronJobs: CronJob[]; 
-  boardTasks: KanbanTask[]
-  agents: any[]
-  lastUpdated: {
-    cron?: string
-    board?: string
-    usage?: string
-    business?: string
-  }
-}) {
-
-  const formatSchedule = (schedule: unknown): string => {
-    if (typeof schedule === 'string') return schedule
-    if (schedule && typeof schedule === 'object') {
-      const s = schedule as { kind?: string; expr?: string; everyMs?: number }
-      if (s.kind === 'cron' && s.expr) return s.expr
-      if (s.kind === 'every' && s.everyMs) {
-        const mins = Math.round(s.everyMs / 60000)
-        return mins < 60 ? `every ${mins}m` : `every ${Math.round(mins / 60)}h`
-      }
-      return 'scheduled'
-    }
-    return String(schedule)
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Agent Cards */}
-      <AgentCards cronJobs={cronJobs} boardTasks={boardTasks} agents={agents} />
-
-      {/* All Cron Jobs Table */}
-      <div className="card">
-        <div className="card-header flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span>⏰</span> Scheduled Jobs ({cronJobs.length})
-          </div>
-          {lastUpdated.cron && <FreshnessIndicator timestamp={lastUpdated.cron} />}
-        </div>
-        {cronJobs.length === 0 ? (
-          <p className="text-zinc-500 text-sm">No cron jobs configured</p>
-        ) : (
-          <div className="space-y-2">
-            {cronJobs.map(job => (
-              <div key={job.id} className="item-row">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className={`status-dot ${
-                    job.enabled === false ? 'idle' :
-                    job.state?.lastStatus === 'ok' ? 'success' : 
-                    job.state?.lastStatus === 'error' ? 'danger' : 'idle'
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{job.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <p className="text-xs text-zinc-500 mono">{formatSchedule(job.schedule)}</p>
-                      {job.state?.nextRunAtMs && (
-                        <>
-                          <span className="text-zinc-700">•</span>
-                          <p className="text-xs text-orange-400">
-                            Next: <CountdownTimer targetMs={job.state.nextRunAtMs} inline />
-                          </p>
-                        </>
-                      )}
-                      {job.state?.lastRunAtMs && (
-                        <>
-                          <span className="text-zinc-700">•</span>
-                          <p className="text-xs text-zinc-500">
-                            Last: {formatRelativeTime(job.state.lastRunAtMs)}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    {job.state?.lastError && (
-                      <p className="error-message mt-1">{job.state.lastError}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {job.state?.lastStatus && (
-                    <span className={`badge ${
-                      job.state.lastStatus === 'ok' ? 'badge-success' : 'badge-danger'
-                    }`}>
-                      {job.state.lastStatus}
-                    </span>
-                  )}
-                  {job.enabled === false && (
-                    <span className="badge badge-neutral">disabled</span>
-                  )}
+                  <span className="font-mono text-sm text-white">{currency(payment.amount)}</span>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
-    </div>
-  )
-}
+        </SectionCard>
 
-
-function ClockNextEventWidget({ upcomingJobs }: { upcomingJobs: CronJob[] }) {
-  const now = new Date()
-  const next = upcomingJobs[0]
-
-  return (
-    <div className="card clock-widget">
-      <p className="text-xs uppercase tracking-wider text-zinc-500">Live Clock</p>
-      <p className="text-3xl font-bold mono mt-1">{now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
-      <p className="text-xs text-zinc-500 mt-1">{now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
-
-      <div className="mt-4 pt-4 border-t border-zinc-800">
-        <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2">Next Scheduled Event</p>
-        {next?.state?.nextRunAtMs ? (
-          <>
-            <p className="font-semibold text-sm">{next.name}</p>
-            <p className="text-orange-400 mt-1"><CountdownTimer targetMs={next.state.nextRunAtMs} /></p>
-          </>
-        ) : (
-          <p className="text-zinc-500 text-sm">No scheduled jobs</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function QuickActionsPanel({ onAction }: { onAction: (tab: TabType) => void }) {
-  return (
-    <div className="quick-actions-panel">
-      <a className="quick-action-btn" href="https://geo.audit" target="_blank" rel="noopener noreferrer">🔎 Run Audit</a>
-      <button className="quick-action-btn" onClick={() => onAction('tools')}>📊 Check Usage</button>
-      <a className="quick-action-btn" href="/data/business-metrics.json" target="_blank" rel="noopener noreferrer">🧠 View Intel</a>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════
-// HELPER COMPONENTS
-// ═══════════════════════════════════════════════════════════
-
-function StatCard({ icon, label, value, subtext }: { 
-  icon: string
-  label: string
-  value: string | number
-  subtext: string
-}) {
-  const numericValue = typeof value === 'number' ? value : Number(String(value).replace(/[^0-9.-]/g, ''))
-  const hasNumber = !Number.isNaN(numericValue) && String(value).match(/[0-9]/)
-  const [display, setDisplay] = useState(hasNumber ? 0 : 0)
-
-  useEffect(() => {
-    if (!hasNumber) return
-    const target = numericValue
-    const step = Math.max(1, Math.ceil(Math.abs(target - display) / 20))
-    const i = setInterval(() => {
-      setDisplay(prev => (prev < target ? Math.min(target, prev + step) : Math.max(target, prev - step)))
-    }, 22)
-    return () => clearInterval(i)
-  }, [numericValue, hasNumber])
-
-  const shown = hasNumber ? String(value).replace(/[0-9][0-9.,]*/, Math.round(display).toLocaleString()) : String(value)
-
-  return (
-    <div className="stat-card">
-      <div className="flex items-center gap-2 text-zinc-400 text-sm mb-2">
-        <span>{icon}</span>
-        <span>{label}</span>
-      </div>
-      <div className="flex items-baseline gap-1">
-        <span className="stat-value">{shown}</span>
-      </div>
-      <p className="text-xs text-zinc-500 mt-1">{subtext}</p>
-    </div>
-  )
-}
-
-function CountdownTimer({ targetMs, inline = false }: { targetMs: number; inline?: boolean }) {
-  const [countdown, setCountdown] = useState('')
-
-  useEffect(() => {
-    const update = () => {
-      const now = Date.now()
-      const diff = targetMs - now
-      
-      if (diff < 0) {
-        setCountdown(inline ? 'running...' : 'Running now...')
-        return
-      }
-
-      const mins = Math.floor(diff / 60000)
-      const secs = Math.floor((diff % 60000) / 1000)
-      const hours = Math.floor(mins / 60)
-      const days = Math.floor(hours / 24)
-
-      if (days > 0) {
-        setCountdown(inline ? `${days}d ${hours % 24}h` : `${days}d ${hours % 24}h ${mins % 60}m`)
-      } else if (hours > 0) {
-        setCountdown(inline ? `${hours}h ${mins % 60}m` : `${hours}h ${mins % 60}m ${secs}s`)
-      } else if (mins > 0) {
-        setCountdown(inline ? `${mins}m` : `${mins}m ${secs}s`)
-      } else {
-        setCountdown(inline ? `${secs}s` : `${secs}s`)
-      }
-    }
-
-    update()
-    const interval = setInterval(update, 1000)
-    return () => clearInterval(interval)
-  }, [targetMs, inline])
-
-  return <span className="countdown">{countdown}</span>
-}
-
-function formatRelativeTime(ms: number): string {
-  const now = Date.now()
-  const diff = now - ms
-  const mins = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days < 7) return `${days}d ago`
-  
-  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-// Helper to show freshness indicator
-function FreshnessIndicator({ timestamp, label }: { timestamp?: string; label?: string }) {
-  if (!timestamp) return null
-  
-  const ageMs = Date.now() - new Date(timestamp).getTime()
-  const ageMins = Math.floor(ageMs / 60000)
-  
-  const status = ageMins < 5 ? 'success' : ageMins < 60 ? 'warning' : 'danger'
-  const text = formatRelativeTime(new Date(timestamp).getTime())
-  
-  return (
-    <div className="flex items-center gap-2 text-xs text-zinc-500">
-      <div className={`status-dot ${status}`} />
-      <span>{label ? `${label}: ` : ''}{text}</span>
-    </div>
-  )
-}
-
-function LoadingSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[1,2,3,4].map(i => (
-          <div key={i} className="skeleton h-24 rounded-xl" />
-        ))}
-      </div>
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2">
-          <div className="skeleton h-96 rounded-xl" />
-        </div>
-        <div className="space-y-4">
-          <div className="skeleton h-64 rounded-xl" />
-          <div className="skeleton h-48 rounded-xl" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function calculateXP(
-  boardTasks: KanbanTask[],
-  cronJobs: CronJob[],
-  business: BusinessMetricsSnapshot | null,
-  seed: XPData
-): XPData {
-  const doneTasks = boardTasks.filter(t => t.status === 'done').length
-  const cleanCronRuns = cronJobs.filter(j => j.state?.lastStatus === 'ok').length
-  const revenue = Math.max(0, Math.round(business?.goal?.total || 0))
-  const uniqueActiveDays = new Set(
-    boardTasks
-      .map(t => t.completedDate || t.createdDate)
-      .filter(Boolean)
-  ).size
-
-  const agentsDeployed = 3
-  const skillsBuilt = 4
-
-  const earnedFromSources =
-    doneTasks * 10 +
-    cleanCronRuns * 2 +
-    revenue * 100 +
-    uniqueActiveDays * 25 +
-    agentsDeployed * 50 +
-    skillsBuilt * 30
-
-  const totalXpEarned = (seed?.totalXpEarned || 0) + earnedFromSources
-  const level = Math.max(1, Math.floor(totalXpEarned / 100) + 1)
-  const xp = totalXpEarned % 100
-
-  const title = level <= 1 ? 'Recruit' :
-    level <= 5 ? 'Operator' :
-    level <= 10 ? 'Commander' :
-    level <= 20 ? 'Architect' : 'Emperor'
-
-  return {
-    ...seed,
-    level,
-    xp,
-    xpToNext: 100,
-    title,
-    totalXpEarned,
-    history: [
-      { source: 'Task completed', amount: doneTasks * 10 },
-      { source: 'Cron job ran clean', amount: cleanCronRuns * 2 },
-      { source: 'Revenue earned', amount: revenue * 100 },
-      { source: 'Streak day', amount: uniqueActiveDays * 25 },
-      { source: 'Agent deployed', amount: agentsDeployed * 50 },
-      { source: 'Skill built', amount: skillsBuilt * 30 },
-    ],
-  }
-}
-
-function StatsTab({
-  boardTasks,
-  cronJobs,
-  xpData,
-  achievements,
-  businessMetrics,
-}: {
-  boardTasks: KanbanTask[]
-  cronJobs: CronJob[]
-  xpData: XPData | null
-  achievements: Achievement[]
-  businessMetrics: BusinessMetricsSnapshot | null
-}) {
-  const tasksDone = boardTasks.filter(task => task.status === 'done').length
-  const daysActive = new Set(boardTasks.map(task => task.completedDate || task.createdDate).filter(Boolean)).size
-  const agentsRunning = 3
-  const skillsBuilt = 4
-
-  const revenueTotal = Math.max(
-    0,
-    Number(
-      businessMetrics?.goal?.total ||
-      businessMetrics?.history?.reduce((sum, item) => sum + (item.amount || 0), 0) ||
-      0
-    )
-  )
-
-  const [revenueDisplay, setRevenueDisplay] = useState(0)
-
-  useEffect(() => {
-    const target = Math.floor(revenueTotal)
-    const step = Math.max(1, Math.ceil(Math.max(1, target) / 60))
-    const timer = setInterval(() => {
-      setRevenueDisplay(prev => {
-        if (prev >= target) return target
-        return Math.min(target, prev + step)
-      })
-    }, 18)
-
-    return () => clearInterval(timer)
-  }, [revenueTotal])
-
-  return (
-    <div className="space-y-6">
-      {xpData && <XPBar xpData={xpData} />}
-
-      <div className={`card revenue-card ${revenueTotal >= 1 ? 'jackpot' : ''}`}>
-        <p className="text-xs uppercase tracking-wider text-zinc-400">Total Revenue Earned</p>
-        <p className="text-4xl sm:text-6xl font-extrabold mt-2 gradient-text mono">${revenueDisplay.toLocaleString()}</p>
-        <p className="text-sm text-zinc-500 mt-2">
-          {revenueTotal >= 1 ? 'Jackpot unlocked 💥' : 'Ready for first dollar'}
-        </p>
-      </div>
-
-      <StatsCard
-        stats={{
-          tasksDone,
-          daysActive,
-          agentsRunning,
-          skillsBuilt,
-        }}
-      />
-
-      <div className="card">
-        <div className="card-header">
-          <span>🏅</span> Achievements
-        </div>
-        <Achievements achievements={achievements} />
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <span>⚡</span> XP Sources
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div className="item-row">✅ Task completed <span className="font-bold text-emerald-400">+10 XP</span></div>
-          <div className="item-row">⏱️ Cron job ran clean <span className="font-bold text-emerald-400">+2 XP</span></div>
-          <div className="item-row">💰 Revenue earned <span className="font-bold text-emerald-400">+100 XP / $1</span></div>
-          <div className="item-row">🔥 Streak day <span className="font-bold text-emerald-400">+25 XP</span></div>
-          <div className="item-row">🤖 Agent deployed <span className="font-bold text-emerald-400">+50 XP</span></div>
-          <div className="item-row">🛠️ Skill built <span className="font-bold text-emerald-400">+30 XP</span></div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════
-// TOOLS TAB - Skills & Tools Store
-// ═══════════════════════════════════════════════════════════
-
-function ToolsTab() {
-  const customSkills = [
-    {
-      name: 'youtube-transcript',
-      icon: '🎬',
-      description: 'Extracts YouTube video transcripts. Python venv + youtube-transcript-api.',
-      path: 'skills/youtube-transcript/',
-      status: 'working' as const,
-      statusNote: 'Working',
-      tags: ['python', 'venv', 'youtube'],
-    },
-    {
-      name: 'tiktok-trends',
-      icon: '📈',
-      description: 'Researches trending topics on TikTok, Google Trends, and Twitter for merch opportunities.',
-      path: 'skills/tiktok-trends/',
-      status: 'working' as const,
-      statusNote: 'Google Trends + Twitter working. TikTok Creative Center needs browser upgrade.',
-      tags: ['python', 'venv', 'trends', 'merch'],
-    },
-    {
-      name: '#ideas research pipeline',
-      icon: '🔍',
-      description: 'Auto-researches URLs dropped in Discord #ideas channel. Also works on-demand in WhatsApp ("investiga esto" + link).',
-      path: 'agents/research-pipeline/',
-      status: 'working' as const,
-      statusNote: 'Working',
-      tags: ['discord', 'whatsapp', 'research', 'auto'],
-    },
-  ]
-
-  const builtInSkills = [
-    { name: 'weather', icon: '🌤️', description: 'Get current weather and forecasts for any location.' },
-    { name: 'github', icon: '🐙', description: 'Interact with GitHub repos, issues, PRs, and more.' },
-    { name: 'nano-pdf', icon: '📄', description: 'Extract text and data from PDF documents.' },
-    { name: 'video-frames', icon: '🎞️', description: 'Extract frames and thumbnails from video files.' },
-    { name: 'web-search', icon: '🔎', description: 'Search the web via Brave Search API.' },
-    { name: 'web-fetch', icon: '🌐', description: 'Fetch and extract readable content from URLs.' },
-    { name: 'browser', icon: '🖥️', description: 'Full browser automation and control.' },
-    { name: 'tts', icon: '🔊', description: 'Text-to-speech via ElevenLabs.' },
-    { name: 'image', icon: '🖼️', description: 'Analyze images with vision models.' },
-    { name: 'nodes', icon: '📱', description: 'Control paired mobile/desktop nodes (camera, screen, location).' },
-  ]
-
-  return (
-    <div className="space-y-8">
-      {/* Custom Skills */}
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold mb-1">Custom Skills</h2>
-        <p className="text-zinc-500 text-sm mb-4">Skills we built and maintain</p>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {customSkills.map(skill => (
-            <div key={skill.name} className="card group hover:scale-[1.02] transition-transform">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 flex items-center justify-center text-xl sm:text-2xl shrink-0">
-                    {skill.icon}
+        <SectionCard title="Pipeline Snapshot" meta={`${leads.count} captured`}>
+          <div className="space-y-2">
+            {leads.leads.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-8 text-center text-sm text-white/45">
+                No recent lead captures.
+              </div>
+            ) : (
+              leads.leads.slice(0, 5).map((lead, index) => (
+                <div key={`${lead.email}-${index}`} className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="truncate text-sm text-white">{lead.name}</p>
+                    <span className="rounded-full border border-white/5 bg-white/[0.04] px-2.5 py-1 font-mono text-[11px] text-white/50">
+                      {lead.source}
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-base sm:text-lg truncate">{skill.name}</h3>
-                    <p className="text-xs text-zinc-500 truncate">{skill.path}</p>
-                  </div>
+                  <p className="mt-1 truncate text-xs text-white/55">{lead.email || 'No email available'}</p>
+                  <p className="mt-2 text-[11px] text-white/40">{relativeTime(lead.createdAt)}</p>
                 </div>
-                <div className="status-dot success shrink-0 mt-1" title="Working" />
-              </div>
-              
-              <p className="text-sm text-zinc-400 mb-3">{skill.description}</p>
-              
-              {skill.statusNote !== 'Working' && (
-                <p className="text-xs text-yellow-400/80 mb-3">⚠️ {skill.statusNote}</p>
-              )}
+              ))
+            )}
+          </div>
+        </SectionCard>
 
-              <div className="flex flex-wrap gap-1.5 pt-3 border-t border-zinc-800">
-                <span className="badge badge-success">✅ active</span>
-                {skill.tags.map(tag => (
-                  <span key={tag} className="tag-pill text-[0.65rem]">{tag}</span>
-                ))}
+        <SectionCard title="Audit Output" meta={`${audits.total} total`}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <StatPill label="Today" value={String(audits.today)} />
+            <StatPill label="All Time" value={String(audits.total)} />
+          </div>
+          <div className="mt-4 space-y-2">
+            {audits.recent.map((audit) => (
+              <div key={audit.id} className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-white">{audit.businessName}</p>
+                  <p className="mt-1 text-[11px] text-white/40">{shortDate(audit.timestamp)}</p>
+                </div>
+                <span className="rounded-xl border border-indigo-400/15 bg-indigo-400/10 px-3 py-2 font-mono text-sm text-white">
+                  {audit.score}
+                </span>
               </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="System Telemetry" meta={`Uptime ${system.uptime.text}`}>
+          <div className="space-y-3">
+            <MetricLine label="CPU" value={`${system.cpu.usedPercent}% of ${system.cpu.cores} cores`} tone="blue" />
+            <MetricLine label="Memory" value={`${system.memory.usedGb}GB / ${system.memory.totalGb}GB`} tone="green" />
+            <MetricLine label="Disk" value={`${system.disk.usedGb}GB / ${system.disk.totalGb}GB`} tone="yellow" />
+            <MetricLine label="Drafts Pending" value={String(system.draftsPending)} tone="red" />
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard title="Command Feed" meta={`${activity.count} events`}>
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          {statusSummary.map((item) => (
+            <div key={item.label} className="rounded-2xl border border-white/5 bg-white/[0.03] px-3 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-[0.16em] text-white/45">{item.label}</span>
+                <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(item.online)}`} />
+              </div>
+              <p className="mt-3 font-mono text-sm text-white">{item.online ? 'ONLINE' : 'OFFLINE'}</p>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Built-in Skills */}
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold mb-1">Built-in Skills</h2>
-        <p className="text-zinc-500 text-sm mb-4">Provided by OpenClaw out of the box</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {builtInSkills.map(skill => (
-            <div key={skill.name} className="card text-center py-4 px-3">
-              <div className="text-2xl sm:text-3xl mb-2">{skill.icon}</div>
-              <h4 className="font-semibold text-sm mb-1">{skill.name}</h4>
-              <p className="text-xs text-zinc-500 line-clamp-2">{skill.description}</p>
+        <div className="max-h-[540px] overflow-y-auto rounded-3xl border border-white/5 bg-black/20 custom-scroll">
+          {activity.events.length === 0 ? (
+            <div className="px-5 py-10 text-center text-sm text-white/45">No recent activity detected.</div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {activity.events.map((event, index) => (
+                <div key={`${event.source}-${event.timestamp}-${index}`} className="activity-row flex flex-col gap-2 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-white">{event.line}</p>
+                    <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/35">{event.source}</p>
+                  </div>
+                  <span className="shrink-0 font-mono text-xs text-white/45">{shortDate(event.timestamp)}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      </div>
+      </SectionCard>
     </div>
+  )
+
+  const pipelineContent = (
+    <div className="grid gap-4 xl:grid-cols-3">
+      <SectionCard title="Revenue Queue" meta="Recent collections">
+        <div className="space-y-3">
+          {revenue.payments.map((payment) => (
+            <div key={`${payment.businessName}-${payment.timestamp}`} className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm text-white">{payment.businessName}</p>
+                  <p className="mt-1 text-xs text-white/45">{shortDate(payment.timestamp)}</p>
+                </div>
+                <span className="font-mono text-sm text-white">{currency(payment.amount)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Lead Intake" meta={`${leads.count} total`}>
+        <div className="space-y-3">
+          {leads.leads.slice(0, 8).map((lead, index) => (
+            <div key={`${lead.email}-${index}`} className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+              <p className="text-sm text-white">{lead.name}</p>
+              <p className="mt-1 text-xs text-white/55">{lead.email || 'No email available'}</p>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="badge badge-info">{lead.source}</span>
+                <span className="font-mono text-[11px] text-white/45">{relativeTime(lead.createdAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Audit Queue" meta="Last 5">
+        <div className="space-y-3">
+          {audits.recent.map((audit) => (
+            <div key={audit.id} className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-white">{audit.businessName}</p>
+                  <p className="mt-1 text-xs text-white/45">{shortDate(audit.timestamp)}</p>
+                </div>
+                <span className="rounded-xl border border-white/5 bg-white/[0.04] px-3 py-1.5 font-mono text-sm text-white">
+                  {audit.score}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  )
+
+  const agentsContent = (
+    <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <SectionCard title="Fleet Health" meta={`${healthyServices}/3 systems online`}>
+        <div className="grid gap-3 md:grid-cols-3">
+          {statusSummary.map((item) => (
+            <div key={item.label} className="rounded-3xl border border-white/5 bg-white/[0.03] px-4 py-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/45">{item.label}</p>
+                <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(item.online)}`} />
+              </div>
+              <p className="mt-4 text-lg font-medium text-white">{item.online ? 'Healthy' : 'Attention'}</p>
+              <p className="mt-1 text-xs text-white/45">{item.online ? 'Responding to checks' : 'Not responding to checks'}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <StatPill label="Active Sessions" value={String(system.activeSessions)} detail="OpenClaw runtime" />
+          <StatPill label="Drafts Pending" value={String(system.draftsPending)} detail="Awaiting review" />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Runtime Envelope" meta={loading ? 'Syncing' : liveTime}>
+        <div className="space-y-4">
+          <div>
+            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
+              <span>Memory</span>
+              <span className="font-mono text-white">{system.memory.usedPercent}%</span>
+            </div>
+            <div className="progress-bar h-2">
+              <div className="progress-fill" style={{ width: `${system.memory.usedPercent}%` }} />
+            </div>
+          </div>
+          <div>
+            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
+              <span>Disk</span>
+              <span className="font-mono text-white">{system.disk.usedPercent}%</span>
+            </div>
+            <div className="progress-bar h-2">
+              <div className="progress-fill" style={{ width: `${system.disk.usedPercent}%` }} />
+            </div>
+          </div>
+          <div>
+            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
+              <span>CPU</span>
+              <span className="font-mono text-white">{system.cpu.usedPercent}%</span>
+            </div>
+            <div className="progress-bar h-2">
+              <div className="progress-fill" style={{ width: `${system.cpu.usedPercent}%` }} />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/5 bg-black/20 px-4 py-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-white/45">Load Average</p>
+            <p className="mt-2 font-mono text-xl text-white">{system.cpu.loadAvg.join(' / ')}</p>
+            <p className="mt-1 text-xs text-white/45">{system.cpu.cores} logical cores</p>
+          </div>
+        </div>
+      </SectionCard>
+    </div>
+  )
+
+  const cronsContent = (
+    <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <SectionCard title="Cron Matrix" meta={`${crons.count} jobs · ${crons.source}`}>
+        <div className="max-h-[720px] space-y-3 overflow-y-auto pr-1 custom-scroll">
+          {crons.jobs.map((job) => (
+            <div key={job.id} className="rounded-3xl border border-white/5 bg-white/[0.03] px-4 py-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        job.status === 'ok'
+                          ? 'bg-emerald-400'
+                          : job.status === 'running'
+                            ? 'bg-amber-400 live-dot'
+                            : job.status === 'idle'
+                              ? 'bg-sky-400'
+                              : job.status === 'disabled'
+                                ? 'bg-white/30'
+                                : 'bg-rose-500'
+                      }`}
+                    />
+                    <p className="truncate text-sm font-medium text-white">{job.name}</p>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.14em] text-white/35">
+                    <span>Last {relativeTime(job.lastRunAt)}</span>
+                    <span>Next {relativeTime(job.nextRunAt)}</span>
+                  </div>
+                  {job.lastError ? <p className="mt-3 text-xs text-rose-200">{job.lastError}</p> : null}
+                </div>
+                <span className={`badge ${cronBadgeTone(job.status)}`}>{job.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Scheduler Summary" meta="Derived">
+        <div className="grid gap-3">
+          <StatPill label="Running" value={String(runningCrons)} detail="Live executions" />
+          <StatPill label="Healthy" value={String(crons.jobs.filter((job) => job.status === 'ok').length)} detail="Successful last run" />
+          <StatPill label="Attention" value={String(crons.jobs.filter((job) => job.status === 'error').length)} detail="Needs review" />
+        </div>
+        <div className="mt-4 rounded-3xl border border-white/5 bg-black/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Latest Activity</p>
+          <div className="mt-3 space-y-3">
+            {activity.events.slice(-4).reverse().map((event, index) => (
+              <div key={`${event.source}-${event.timestamp}-${index}`} className="border-b border-white/5 pb-3 last:border-b-0 last:pb-0">
+                <p className="text-sm text-white">{event.line}</p>
+                <p className="mt-1 font-mono text-[11px] text-white/40">{shortDate(event.timestamp)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </SectionCard>
+    </div>
+  )
+
+  const tabContent =
+    activeTab === 'overview'
+      ? overviewContent
+      : activeTab === 'live-ops'
+        ? <LiveOps />
+        : activeTab === 'pipeline'
+          ? pipelineContent
+          : activeTab === 'agents'
+            ? agentsContent
+            : cronsContent
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0f] text-white">
+      <div className="mx-auto min-h-screen max-w-[1720px] px-4 py-4 sm:px-6 lg:px-8">
+        <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="panel h-fit xl:sticky xl:top-4">
+            <div className="flex items-center gap-3">
+              <span className="live-dot bg-emerald-400 shadow-[0_0_20px_rgba(34,197,94,0.45)]" />
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">Ops Center</p>
+                <h1 className="mt-1 bg-gradient-to-r from-indigo-300 via-indigo-100 to-violet-300 bg-clip-text text-2xl font-semibold tracking-[0.08em] text-transparent">
+                  MISSION CONTROL
+                </h1>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-white/5 bg-black/20 px-4 py-4">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Live Clock</p>
+              <p className="mt-3 font-mono text-lg text-white">{liveTime}</p>
+              <p className="mt-2 text-xs text-white/45">Operational overview of agents, revenue, pipeline, and cron health.</p>
+            </div>
+
+            <nav className="mt-6 space-y-2">
+              {tabs.map((tab) => {
+                const active = tab.key === activeTab
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`w-full rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
+                      active
+                        ? 'border-indigo-400/20 bg-gradient-to-r from-indigo-500/18 to-violet-500/12 shadow-[0_0_28px_rgba(99,102,241,0.12)]'
+                        : 'border-white/5 bg-white/[0.025] hover:border-white/10 hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/35">{tab.eyebrow}</p>
+                    <p className="mt-1 font-medium text-white">{tab.label}</p>
+                  </button>
+                )
+              })}
+            </nav>
+          </aside>
+
+          <div className="min-w-0">
+            <header className="panel">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span className="live-dot bg-emerald-400 shadow-[0_0_20px_rgba(34,197,94,0.45)]" />
+                    <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">Realtime command stream</p>
+                  </div>
+                  <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                    Premium ops visibility, built for always-on automation.
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm text-white/55">
+                    Dark glass surfaces, realtime telemetry, and tabbed command views for revenue, agents, pipeline, and cron orchestration.
+                  </p>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {statusSummary.map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-white/5 bg-white/[0.03] px-3 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(item.online)}`} />
+                        <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">{item.label}</span>
+                      </div>
+                      <p className="mt-2 font-mono text-sm text-white">{item.online ? 'ACTIVE' : 'DOWN'}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </header>
+
+            {error ? (
+              <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+                {error}
+              </div>
+            ) : null}
+
+            <section className="panel mt-4">
+              <div className="grid gap-3 lg:grid-cols-5">
+                <StatPill label="Revenue Today" value={currency(revenue.today)} detail={loading ? 'Syncing...' : 'Gross collected'} />
+                <StatPill label="Leads" value={String(leads.count)} detail="Captured contacts" />
+                <StatPill label="Audits Today" value={String(audits.today)} detail="New evaluations" />
+                <StatPill label="Active Sessions" value={String(system.activeSessions)} detail="Runtime sessions" />
+                <StatPill label="Crons Running" value={String(runningCrons)} detail={`${crons.count} scheduled`} />
+              </div>
+            </section>
+
+            <section className="mt-4">{tabContent}</section>
+          </div>
+        </div>
+      </div>
+    </main>
   )
 }
 

@@ -1,905 +1,600 @@
-import express from 'express'
 import cors from 'cors'
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs'
-import { join, dirname, extname, basename } from 'path'
-import { exec } from 'child_process'
+import express from 'express'
+import os from 'os'
+import { exec as execCallback } from 'child_process'
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
+import { dirname, extname, join } from 'path'
 import { promisify } from 'util'
 import { fileURLToPath } from 'url'
+
+const execAsync = promisify(execCallback)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-const execAsync = promisify(exec)
 const app = express()
-const PORT = process.env.PORT || 3002
-const isProduction = process.env.NODE_ENV === 'production'
+const PORT = 3002
+
+const WORKSPACE_PATH = '/Users/jeanseda/.openclaw/workspace'
+const GEO_AUDIT_PATH = '/Users/jeanseda/.openclaw/workspace/geo-audit'
+const GEO_AUDIT_DATA_PATH = '/Users/jeanseda/.openclaw/workspace/geo-audit/data'
+const PAYMENTS_PATH = '/Users/jeanseda/.openclaw/workspace/geo-audit/data/payments.json'
+const LEADS_PATH = '/Users/jeanseda/.openclaw/workspace/geo-audit/data/leads.json'
+const AUDITS_PATH = '/Users/jeanseda/.openclaw/workspace/geo-audit/data/cache/ai-audits'
+const DRAFTS_PATH = '/Users/jeanseda/.openclaw/workspace/drafts'
+const OPENCLAW_HOME = '/Users/jeanseda/.openclaw'
+const OPENCLAW_LOGS_PATH = '/Users/jeanseda/.openclaw/logs'
+const CRON_JOBS_PATH = '/Users/jeanseda/.openclaw/cron/jobs.json'
+const LOCAL_AGENTS_PATH = join(__dirname, '../data/agents.json')
+const PUBLIC_AGENTS_PATH = join(__dirname, '../public/data/agents.json')
 
 app.use(cors())
 app.use(express.json())
 
-const DATA_DIR = join(__dirname, '../data')
-const TASKS_FILE = join(DATA_DIR, 'tasks.json')
-const BOARD_FILE = join(DATA_DIR, 'board.json')
-const BUSINESS_FILE = join(DATA_DIR, 'business-metrics.json')
-const WORKSPACE = process.env.OPENCLAW_WORKSPACE || '/Users/jeanseda/.openclaw/workspace'
-
-// Serve static files in production
-if (isProduction) {
-  const distPath = join(__dirname, '../dist')
+const distPath = join(__dirname, '../dist')
+if (existsSync(distPath)) {
   app.use(express.static(distPath))
 }
 
-// Serve data files (for claude-usage.json, etc.)
-app.use('/data', express.static(DATA_DIR))
+type JsonObject = Record<string, unknown>
 
-// Ensure data directory exists
-if (!existsSync(DATA_DIR)) {
-  mkdirSync(DATA_DIR, { recursive: true })
+type AuditSummary = {
+  id: string
+  businessName: string
+  score: number
+  timestamp: string
 }
 
-// Initialize tasks file if not exists
-if (!existsSync(TASKS_FILE)) {
-  writeFileSync(TASKS_FILE, '[]')
+type CronStatus = 'ok' | 'error' | 'running' | 'idle' | 'disabled'
+
+type AgentSeed = {
+  id: string
+  agentId?: string
+  name?: string
+  role?: string
+  model?: string
+  status?: 'active' | 'idle'
+  uptimeHours?: number
 }
 
-// Initialize board file if not exists
-if (!existsSync(BOARD_FILE)) {
-  const defaultBoard = [
-    { id: '1', title: 'Set up DealBot WhatsApp', description: 'Verify phone number and connect to OpenClaw', status: 'todo', priority: 'high', tags: ['dealbot'] },
-    { id: '2', title: 'Design agent for Vic', description: 'Complete onboarding curriculum', status: 'in_progress', priority: 'medium', tags: ['agents'] },
-    { id: '3', title: 'Fitness Dashboard improvements', description: 'Add meal logging feature', status: 'backlog', priority: 'low', tags: ['fitness'] },
-    { id: '4', title: 'Mission Control calendar', description: 'Implement classic calendar view', status: 'done', priority: 'medium', tags: ['dashboard'] },
-  ]
-  writeFileSync(BOARD_FILE, JSON.stringify(defaultBoard, null, 2))
+const readJsonFile = <T>(filePath: string, fallback: T): T => {
+  if (!existsSync(filePath)) return fallback
+
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf-8')) as T
+  } catch {
+    return fallback
+  }
 }
 
-// ═══════════════════════════════════════════════════════════
-// CRON JOBS
-// ═══════════════════════════════════════════════════════════
-
-app.get('/api/cron', async (req, res) => {
-  // Try live data from openclaw CLI first
-  try {
-    const { stdout } = await execAsync('openclaw cron list --json 2>/dev/null || echo "[]"')
-    const parsed = JSON.parse(stdout.trim() || '[]')
-    const jobs = Array.isArray(parsed) ? parsed : (parsed?.jobs || [])
-    if (jobs.length > 0) {
-      return res.json({ jobs, lastUpdated: new Date().toISOString() })
-    }
-  } catch (e) {
-    // CLI not available (e.g. on Render), fall through to static file
+const toIso = (value: unknown): string | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Date(value).toISOString()
   }
 
-  // Fallback: read static cron-jobs.json (updated by nightly cron)
-  try {
-    const staticFile = join(DATA_DIR, 'cron-jobs.json')
-    if (existsSync(staticFile)) {
-      const data = JSON.parse(readFileSync(staticFile, 'utf-8'))
-      return res.json(data)
+  if (typeof value === 'string' && value.trim()) {
+    const timestamp = Date.parse(value)
+    if (!Number.isNaN(timestamp)) {
+      return new Date(timestamp).toISOString()
     }
-  } catch (e) {
-    console.error('Failed to read static cron data:', e)
   }
 
-  res.json({ jobs: [], lastUpdated: new Date().toISOString() })
-})
-
-// ═══════════════════════════════════════════════════════════
-// CALENDAR - Scheduled & Past Tasks
-// ═══════════════════════════════════════════════════════════
-
-app.get('/api/calendar', async (req, res) => {
-  try {
-    // Get cron jobs with their schedules and last/next run times
-    const { stdout } = await execAsync('openclaw cron list --json 2>/dev/null || echo "[]"')
-    const parsed = JSON.parse(stdout.trim() || '[]')
-    const jobs = Array.isArray(parsed) ? parsed : (parsed?.jobs || [])
-    
-    const events: Array<{
-      id: string
-      title: string
-      type: 'scheduled' | 'completed' | 'error'
-      time: string
-      schedule?: string
-    }> = []
-
-    // Add upcoming scheduled runs
-    for (const job of jobs) {
-      if (job.state?.nextRunAtMs) {
-        events.push({
-          id: `next-${job.id}`,
-          title: job.name || job.id,
-          type: 'scheduled',
-          time: new Date(job.state.nextRunAtMs).toISOString(),
-          schedule: job.schedule?.expr || job.schedule
-        })
-      }
-      
-      // Add last run if exists
-      if (job.state?.lastRunAtMs) {
-        events.push({
-          id: `last-${job.id}`,
-          title: job.name || job.id,
-          type: job.state.lastStatus === 'error' ? 'error' : 'completed',
-          time: new Date(job.state.lastRunAtMs).toISOString()
-        })
-      }
-    }
-
-    // Sort by time
-    events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-    
-    res.json({
-      events,
-      lastUpdated: new Date().toISOString()
-    })
-  } catch (e) {
-    console.error('Failed to get calendar:', e)
-    res.json([])
-  }
-})
-
-// ═══════════════════════════════════════════════════════════
-// DOCUMENTS - Workspace Files
-// ═══════════════════════════════════════════════════════════
-
-app.get('/api/documents', (req, res) => {
-  try {
-    // Check if workspace exists (might not on production)
-    if (!existsSync(WORKSPACE)) {
-      console.log('Workspace not found at:', WORKSPACE)
-      return res.json([])
-    }
-
-    const docs: Array<{
-      name: string
-      path: string
-      type: 'markdown' | 'json' | 'other'
-      size: number
-      modified: string
-      category: string
-    }> = []
-
-    // Key files to show
-    const keyFiles = [
-      { path: 'MEMORY.md', category: 'Core' },
-      { path: 'SOUL.md', category: 'Core' },
-      { path: 'USER.md', category: 'Core' },
-      { path: 'AGENTS.md', category: 'Core' },
-      { path: 'TOOLS.md', category: 'Core' },
-      { path: 'HEARTBEAT.md', category: 'Core' },
-    ]
-
-    // Add key files
-    for (const file of keyFiles) {
-      const fullPath = join(WORKSPACE, file.path)
-      if (existsSync(fullPath)) {
-        const stat = statSync(fullPath)
-        docs.push({
-          name: file.path,
-          path: file.path,
-          type: extname(file.path) === '.md' ? 'markdown' : extname(file.path) === '.json' ? 'json' : 'other',
-          size: stat.size,
-          modified: stat.mtime.toISOString(),
-          category: file.category
-        })
-      }
-    }
-
-    // Add memory files (all of them, we'll limit after sorting)
-    const memoryDir = join(WORKSPACE, 'memory')
-    if (existsSync(memoryDir)) {
-      const memoryFiles = readdirSync(memoryDir).filter(f => f.endsWith('.md') || f.endsWith('.json'))
-      for (const file of memoryFiles) {
-        const fullPath = join(memoryDir, file)
-        if (existsSync(fullPath)) {
-          const stat = statSync(fullPath)
-          docs.push({
-            name: file,
-            path: `memory/${file}`,
-            type: extname(file) === '.md' ? 'markdown' : 'json',
-            size: stat.size,
-            modified: stat.mtime.toISOString(),
-            category: 'Memory'
-          })
-        }
-      }
-    }
-
-    // Add agent configs
-    const agentsDir = join(WORKSPACE, 'agents')
-    if (existsSync(agentsDir)) {
-      const agentDirs = readdirSync(agentsDir)
-      for (const agentDir of agentDirs) {
-        const agentPath = join(agentsDir, agentDir)
-        if (statSync(agentPath).isDirectory()) {
-          const agentFiles = readdirSync(agentPath).filter(f => f.endsWith('.md') || f.endsWith('.json'))
-          for (const file of agentFiles) {
-            const fullPath = join(agentPath, file)
-            const stat = statSync(fullPath)
-            docs.push({
-              name: `${agentDir}/${file}`,
-              path: `agents/${agentDir}/${file}`,
-              type: extname(file) === '.md' ? 'markdown' : 'json',
-              size: stat.size,
-              modified: stat.mtime.toISOString(),
-              category: `Agent: ${agentDir}`
-            })
-          }
-        }
-      }
-    }
-
-    // Sort by modified date descending and limit to 50 most recent
-    docs.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
-    const recentDocs = docs.slice(0, 50)
-    
-    res.json({
-      documents: recentDocs,
-      lastUpdated: new Date().toISOString()
-    })
-  } catch (e) {
-    console.error('Failed to get documents:', e)
-    res.json([])
-  }
-})
-
-// Read a specific document
-app.get('/api/documents/:path(*)', (req, res) => {
-  try {
-    // Check if workspace exists
-    if (!existsSync(WORKSPACE)) {
-      return res.status(404).json({ error: 'Workspace not available' })
-    }
-
-    const docPath = req.params.path
-    const fullPath = join(WORKSPACE, docPath)
-    
-    // Security: make sure path is within workspace
-    if (!fullPath.startsWith(WORKSPACE)) {
-      return res.status(403).json({ error: 'Access denied' })
-    }
-    
-    if (!existsSync(fullPath)) {
-      return res.status(404).json({ error: 'Document not found' })
-    }
-    
-    const content = readFileSync(fullPath, 'utf-8')
-    const stat = statSync(fullPath)
-    
-    res.json({
-      path: docPath,
-      name: basename(docPath),
-      content,
-      size: stat.size,
-      modified: stat.mtime.toISOString()
-    })
-  } catch (e) {
-    console.error('Failed to read document:', e)
-    res.status(500).json({ error: 'Failed to read document' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════
-// TASK HISTORY - Completed Tasks Log
-// ═══════════════════════════════════════════════════════════
-
-app.get('/api/tasks', async (req, res) => {
-  try {
-    // Get local tasks
-    const localTasks = JSON.parse(readFileSync(TASKS_FILE, 'utf-8'))
-    
-    // Get cron job history from their state
-    const { stdout } = await execAsync('openclaw cron list --json 2>/dev/null || echo "[]"')
-    const parsed = JSON.parse(stdout.trim() || '[]')
-    const jobs = Array.isArray(parsed) ? parsed : (parsed?.jobs || [])
-    
-    const cronTasks = jobs
-      .filter((j: any) => j.state?.lastRunAtMs)
-      .map((j: any) => ({
-        id: `cron-${j.id}-${j.state.lastRunAtMs}`,
-        timestamp: new Date(j.state.lastRunAtMs).toISOString(),
-        action: j.name || j.id,
-        result: j.state.lastStatus === 'error' ? 'error' : 'success',
-        details: j.state.lastError || `Completed in ${j.state.lastDurationMs}ms`,
-        source: 'cron'
-      }))
-    
-    // Combine and sort
-    const allTasks = [...localTasks, ...cronTasks]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 50) // Last 50
-    
-    res.json({
-      tasks: allTasks,
-      lastUpdated: new Date().toISOString()
-    })
-  } catch (e) {
-    console.error('Failed to get tasks:', e)
-    res.json([])
-  }
-})
-
-// Add task log entry
-app.post('/api/tasks', (req, res) => {
-  try {
-    const tasks = JSON.parse(readFileSync(TASKS_FILE, 'utf-8'))
-    const newTask = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      ...req.body
-    }
-    tasks.push(newTask)
-    writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2))
-    res.json(newTask)
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to add task' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════
-// FITNESS
-// ═══════════════════════════════════════════════════════════
-
-app.get('/api/fitness', async (req, res) => {
-  try {
-    const memoryPath = join(WORKSPACE, 'MEMORY.md')
-    const memory = readFileSync(memoryPath, 'utf-8')
-    
-    const weightMatch = memory.match(/Weight:\s*([\d.]+)\s*lbs/i)
-    const bodyFatMatch = memory.match(/Body Fat:\s*([\d.]+)%/i)
-    const muscleMassMatch = memory.match(/Muscle Mass:\s*([\d.]+)\s*lbs/i)
-    
-    res.json({
-      weight: weightMatch ? parseFloat(weightMatch[1]) : 164.9,
-      bodyFat: bodyFatMatch ? parseFloat(bodyFatMatch[1]) : 19.8,
-      muscleMass: muscleMassMatch ? parseFloat(muscleMassMatch[1]) : 125.6,
-      phase: 'Lean Bulk',
-      caloriesTarget: 2800,
-      proteinTarget: 170
-    })
-  } catch (e) {
-    res.json({
-      weight: 164.9,
-      bodyFat: 19.8,
-      muscleMass: 125.6,
-      phase: 'Lean Bulk',
-      caloriesTarget: 2800,
-      proteinTarget: 170
-    })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════
-// PROJECTS
-// ═══════════════════════════════════════════════════════════
-
-app.get('/api/projects', (req, res) => {
-  res.json([
-    { name: 'DealBot', status: 'building', progress: 45, description: 'WhatsApp price tracker' },
-    { name: 'Fitness Dashboard', status: 'live', progress: 100, description: 'Notion-powered fitness' },
-    { name: 'Mission Control', status: 'building', progress: 70, description: 'This dashboard' },
-    { name: 'AI Agents Business', status: 'active', progress: 15, description: '$10K/month goal' },
-  ])
-})
-
-// ═══════════════════════════════════════════════════════════
-// KANBAN BOARD
-// ═══════════════════════════════════════════════════════════
-
-app.get('/api/board', (req, res) => {
-  try {
-    const board = JSON.parse(readFileSync(BOARD_FILE, 'utf-8'))
-    res.json({
-      tasks: board,
-      lastUpdated: new Date().toISOString()
-    })
-  } catch (e) {
-    res.json({ tasks: [], lastUpdated: new Date().toISOString() })
-  }
-})
-
-app.post('/api/board', (req, res) => {
-  try {
-    const board = JSON.parse(readFileSync(BOARD_FILE, 'utf-8'))
-    const newTask = {
-      id: Date.now().toString(),
-      ...req.body
-    }
-    board.push(newTask)
-    writeFileSync(BOARD_FILE, JSON.stringify(board, null, 2))
-    res.json(newTask)
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to add task' })
-  }
-})
-
-app.patch('/api/board/:id', (req, res) => {
-  try {
-    const board = JSON.parse(readFileSync(BOARD_FILE, 'utf-8'))
-    const taskIndex = board.findIndex((t: any) => t.id === req.params.id)
-    if (taskIndex === -1) {
-      return res.status(404).json({ error: 'Task not found' })
-    }
-    board[taskIndex] = { ...board[taskIndex], ...req.body }
-    writeFileSync(BOARD_FILE, JSON.stringify(board, null, 2))
-    res.json(board[taskIndex])
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to update task' })
-  }
-})
-
-app.delete('/api/board/:id', (req, res) => {
-  try {
-    let board = JSON.parse(readFileSync(BOARD_FILE, 'utf-8'))
-    board = board.filter((t: any) => t.id !== req.params.id)
-    writeFileSync(BOARD_FILE, JSON.stringify(board, null, 2))
-    res.json({ success: true })
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to delete task' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════
-// BUSINESS INTELLIGENCE
-// ═══════════════════════════════════════════════════════════
-
-// Helper to read business metrics
-const readBusinessMetrics = () => {
-  if (!existsSync(BUSINESS_FILE)) {
-    const defaultData = {
-      goal: {
-        monthly_target: 10000,
-        current_month: new Date().toISOString().slice(0, 7),
-        mrr: 0,
-        one_time: 0,
-        total: 0,
-        progress_percent: 0
-      },
-      clients: [],
-      pipeline: [],
-      history: [],
-      alerts: [],
-      last_updated: new Date().toISOString()
-    }
-    writeFileSync(BUSINESS_FILE, JSON.stringify(defaultData, null, 2))
-    return defaultData
-  }
-  return JSON.parse(readFileSync(BUSINESS_FILE, 'utf-8'))
+  return null
 }
 
-// Helper to write business metrics
-const writeBusinessMetrics = (data: any) => {
-  data.last_updated = new Date().toISOString()
-  writeFileSync(BUSINESS_FILE, JSON.stringify(data, null, 2))
+const normalizeScore = (value: unknown): number => {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) return 0
+  const normalized = numeric <= 10 ? numeric * 10 : numeric
+  return Math.max(0, Math.min(100, Math.round(normalized)))
 }
 
-// Helper to recalculate metrics
-const recalculateMetrics = (data: any) => {
-  const currentMonth = new Date().toISOString().slice(0, 7)
-  
-  // Calculate MRR from active recurring clients
-  data.goal.mrr = data.clients
-    .filter((c: any) => c.type === 'recurring' && (c.status === 'active' || c.status === 'onboarding'))
-    .reduce((sum: number, c: any) => sum + c.mrr, 0)
-  
-  // Calculate one-time revenue for current month
-  data.goal.one_time = data.history
-    .filter((h: any) => h.date.startsWith(currentMonth) && h.type === 'one_time')
-    .reduce((sum: number, h: any) => sum + h.amount, 0)
-  
-  // Total for current month
-  data.goal.total = data.goal.mrr + data.goal.one_time
-  data.goal.current_month = currentMonth
-  data.goal.progress_percent = (data.goal.total / data.goal.monthly_target) * 100
-  
-  return data
+const formatBytes = (bytes: number): number => {
+  return Math.round((bytes / 1024 / 1024 / 1024) * 10) / 10
 }
 
-// Get business metrics
-app.get('/api/business', (req, res) => {
+const formatUptime = (seconds: number): string => {
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
+const startOfToday = (): Date => {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+}
+
+const startOfWeek = (): Date => {
+  const today = startOfToday()
+  const day = today.getDay()
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() - day)
+}
+
+const startOfMonth = (): Date => {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), 1)
+}
+
+const safeExec = async (command: string): Promise<{ stdout: string; stderr: string; ok: boolean }> => {
   try {
-    let data = readBusinessMetrics()
-    data = recalculateMetrics(data)
-    writeBusinessMetrics(data)
-    res.json(data)
-  } catch (e) {
-    console.error('Failed to get business metrics:', e)
-    res.status(500).json({ error: 'Failed to load business metrics' })
+    const result = await execAsync(command, { timeout: 15_000, maxBuffer: 1024 * 1024 * 4 })
+    return { stdout: result.stdout, stderr: result.stderr, ok: true }
+  } catch (error: any) {
+    return {
+      stdout: error?.stdout ?? '',
+      stderr: error?.stderr ?? error?.message ?? '',
+      ok: false
+    }
   }
-})
+}
 
-// Add or update client
-app.post('/api/business/client', (req, res) => {
+const fetchBoolean = async (url: string): Promise<boolean> => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 4_000)
+
   try {
-    let data = readBusinessMetrics()
-    const client = {
-      id: req.body.id || `client-${Date.now()}`,
-      name: req.body.name,
-      status: req.body.status || 'onboarding',
-      type: req.body.type || 'recurring',
-      mrr: req.body.mrr || 0,
-      start_date: req.body.start_date || new Date().toISOString().split('T')[0],
-      last_contact: new Date().toISOString().split('T')[0],
-      health_score: 100,
-      notes: req.body.notes || '',
-      owner: req.body.owner || '',
-      location: req.body.location || '',
-      business: req.body.business || ''
-    }
-    
-    const existingIndex = data.clients.findIndex((c: any) => c.id === client.id)
-    if (existingIndex >= 0) {
-      data.clients[existingIndex] = { ...data.clients[existingIndex], ...client }
-    } else {
-      data.clients.push(client)
-    }
-    
-    data = recalculateMetrics(data)
-    writeBusinessMetrics(data)
-    res.json(client)
-  } catch (e) {
-    console.error('Failed to add client:', e)
-    res.status(500).json({ error: 'Failed to add client' })
+    const response = await fetch(url, { signal: controller.signal })
+    return response.ok
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timeout)
   }
-})
+}
 
-// Add or update deal
-app.post('/api/business/deal', (req, res) => {
-  try {
-    let data = readBusinessMetrics()
-    const deal = {
-      id: req.body.id || `deal-${Date.now()}`,
-      name: req.body.name,
-      value: req.body.value,
-      stage: req.body.stage || 'lead',
-      probability: req.body.probability || 25,
-      expected_close: req.body.expected_close || '',
-      created_at: req.body.created_at || new Date().toISOString(),
-      notes: req.body.notes || ''
-    }
-    
-    const existingIndex = data.pipeline.findIndex((d: any) => d.id === deal.id)
-    if (existingIndex >= 0) {
-      data.pipeline[existingIndex] = { ...data.pipeline[existingIndex], ...deal }
-    } else {
-      data.pipeline.push(deal)
-    }
-    
-    writeBusinessMetrics(data)
-    res.json(deal)
-  } catch (e) {
-    console.error('Failed to add deal:', e)
-    res.status(500).json({ error: 'Failed to add deal' })
-  }
-})
+const loadPayments = (): Array<Record<string, unknown>> => {
+  const raw = readJsonFile<JsonObject>(PAYMENTS_PATH, {})
+  const payments = Array.isArray(raw.payments) ? raw.payments : []
+  return payments.filter((payment): payment is Record<string, unknown> => Boolean(payment && typeof payment === 'object'))
+}
 
-// Log revenue event
-app.post('/api/business/revenue', (req, res) => {
-  try {
-    let data = readBusinessMetrics()
-    const client = data.clients.find((c: any) => c.id === req.body.client_id)
-    
-    const revenueEvent = {
-      id: `revenue-${Date.now()}`,
-      date: req.body.date || new Date().toISOString().split('T')[0],
-      type: req.body.type || 'one_time',
-      amount: req.body.amount,
-      client_id: req.body.client_id,
-      client_name: client ? client.name : 'Unknown',
-      description: req.body.description
-    }
-    
-    data.history.unshift(revenueEvent)
-    
-    // Keep only last 100 events
-    data.history = data.history.slice(0, 100)
-    
-    data = recalculateMetrics(data)
-    writeBusinessMetrics(data)
-    res.json(revenueEvent)
-  } catch (e) {
-    console.error('Failed to log revenue:', e)
-    res.status(500).json({ error: 'Failed to log revenue' })
-  }
-})
+const loadLeads = (): Array<Record<string, unknown>> => {
+  const raw = readJsonFile<JsonObject>(LEADS_PATH, {})
+  const leads = Array.isArray(raw.leads) ? raw.leads : []
+  return leads.filter((lead): lead is Record<string, unknown> => Boolean(lead && typeof lead === 'object'))
+}
 
-// ═══════════════════════════════════════════════════════════
-// USAGE STATS (Claude usage from public/data/claude-usage.json)
-// ═══════════════════════════════════════════════════════════
+const loadAuditSummaries = (): AuditSummary[] => {
+  if (!existsSync(AUDITS_PATH)) return []
 
-app.get('/api/usage', (req, res) => {
-  try {
-    const usageFile = join(__dirname, '../public/data/claude-usage.json')
-    if (!existsSync(usageFile)) {
-      return res.json({
-        plan: 'Max',
-        current_session: { percent_used: 0, resets_in: 'Unknown' },
-        weekly_all_models: { percent_used: 0, resets: 'Unknown' },
-        weekly_sonnet: { percent_used: 0, resets: 'Unknown' },
-        lastUpdated: new Date().toISOString()
-      })
-    }
-    
-    const usage = JSON.parse(readFileSync(usageFile, 'utf-8'))
-    const latest = usage.checks && usage.checks.length > 0 ? usage.checks[0] : null
-    
-    res.json({
-      plan: usage.plan || 'Max',
-      current_session: latest?.current_session || { percent_used: 0, resets_in: 'Unknown' },
-      weekly_all_models: latest?.weekly_all_models || { percent_used: 0, resets: 'Unknown' },
-      weekly_sonnet: latest?.weekly_sonnet || { percent_used: 0, resets: 'Unknown' },
-      lastUpdated: latest?.timestamp || new Date().toISOString(),
-      alerts: usage.alerts || null
-    })
-  } catch (e) {
-    console.error('Failed to get usage:', e)
-    res.json({
-      plan: 'Max',
-      current_session: { percent_used: 0, resets_in: 'Unknown' },
-      weekly_all_models: { percent_used: 0, resets: 'Unknown' },
-      weekly_sonnet: { percent_used: 0, resets: 'Unknown' },
-      lastUpdated: new Date().toISOString()
-    })
-  }
-})
+  return readdirSync(AUDITS_PATH)
+    .filter((fileName) => extname(fileName) === '.json')
+    .map((fileName) => {
+      const filePath = join(AUDITS_PATH, fileName)
+      const stats = statSync(filePath)
+      const raw = readJsonFile<JsonObject>(filePath, {})
+      const report = (raw.report ?? {}) as JsonObject
+      const reportBusiness = (report.business ?? {}) as JsonObject
 
-// ═══════════════════════════════════════════════════════════
-// HEALTH CHECK
-// ═══════════════════════════════════════════════════════════
+      const timestamp =
+        toIso(raw.timestamp) ||
+        toIso(report.timestamp) ||
+        stats.mtime.toISOString()
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
-})
-
-// ═══════════════════════════════════════════════════════════
-// SKILLS & TOOLS
-// ═══════════════════════════════════════════════════════════
-
-app.get('/api/skills', async (req, res) => {
-  try {
-    const skills: Array<{
-      name: string
-      description: string
-      path: string
-      scripts: string[]
-      category: 'skill' | 'script' | 'agent-tool'
-      hasVenv: boolean
-      createdDate: string
-    }> = []
-
-    // Helper to extract YAML frontmatter from SKILL.md
-    const extractFrontmatter = (content: string) => {
-      const match = content.match(/^---\n([\s\S]*?)\n---/)
-      if (!match) return null
-      const yaml = match[1]
-      const nameMatch = yaml.match(/name:\s*(.+)/)
-      const descMatch = yaml.match(/description:\s*(.+)/)
       return {
-        name: nameMatch ? nameMatch[1].trim() : null,
-        description: descMatch ? descMatch[1].trim() : null
+        id: String(raw.cacheId ?? fileName.replace(/\.json$/, '')),
+        businessName: String(
+          report.businessName ??
+            reportBusiness.name ??
+            raw.businessName ??
+            fileName.replace(/\.json$/, '')
+        ),
+        score: normalizeScore(
+          report.overallScore ??
+            (report.score as JsonObject | undefined)?.overall ??
+            raw.score
+        ),
+        timestamp
       }
-    }
-
-    // Scan skills directory
-    const skillsDir = join(WORKSPACE, 'skills')
-    if (existsSync(skillsDir)) {
-      const skillDirs = readdirSync(skillsDir)
-      for (const skillDir of skillDirs) {
-        const skillPath = join(skillsDir, skillDir)
-        if (!statSync(skillPath).isDirectory()) continue
-
-        const skillMd = join(skillPath, 'SKILL.md')
-        const scriptsDir = join(skillPath, 'scripts')
-        const venvDir = join(skillPath, 'venv')
-
-        let name = skillDir
-        let description = 'No description available'
-
-        // Read SKILL.md if exists
-        if (existsSync(skillMd)) {
-          const content = readFileSync(skillMd, 'utf-8')
-          const frontmatter = extractFrontmatter(content)
-          if (frontmatter) {
-            name = frontmatter.name || skillDir
-            description = frontmatter.description || description
-          }
-        }
-
-        // Find scripts
-        const scripts: string[] = []
-        if (existsSync(scriptsDir)) {
-          const scriptFiles = readdirSync(scriptsDir)
-          scripts.push(...scriptFiles.filter(f => 
-            f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.sh')
-          ))
-        }
-
-        const stat = statSync(skillPath)
-        skills.push({
-          name,
-          description,
-          path: `skills/${skillDir}`,
-          scripts,
-          category: 'skill',
-          hasVenv: existsSync(venvDir),
-          createdDate: stat.birthtime.toISOString().split('T')[0]
-        })
-      }
-    }
-
-    // Scan agents/maldo/scripts
-    const maldoScriptsDir = join(WORKSPACE, 'agents/maldo/scripts')
-    if (existsSync(maldoScriptsDir)) {
-      const scriptFiles = readdirSync(maldoScriptsDir).filter(f => 
-        f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.sh')
-      )
-      for (const script of scriptFiles) {
-        const scriptPath = join(maldoScriptsDir, script)
-        const stat = statSync(scriptPath)
-        const name = script.replace(/\.(py|js|sh)$/, '')
-        skills.push({
-          name: `Maldo: ${name}`,
-          description: 'Maldo agent utility script',
-          path: `agents/maldo/scripts/${script}`,
-          scripts: [script],
-          category: 'agent-tool',
-          hasVenv: false,
-          createdDate: stat.birthtime.toISOString().split('T')[0]
-        })
-      }
-    }
-
-    // Scan mission-control/scripts
-    const dashboardScriptsDir = join(WORKSPACE, 'mission-control/scripts')
-    if (existsSync(dashboardScriptsDir)) {
-      const scriptFiles = readdirSync(dashboardScriptsDir).filter(f => 
-        f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.sh')
-      )
-      for (const script of scriptFiles) {
-        const scriptPath = join(dashboardScriptsDir, script)
-        const stat = statSync(scriptPath)
-        const name = script.replace(/\.(py|js|sh)$/, '')
-        skills.push({
-          name: `Dashboard: ${name}`,
-          description: 'Mission Control utility script',
-          path: `mission-control/scripts/${script}`,
-          scripts: [script],
-          category: 'script',
-          hasVenv: false,
-          createdDate: stat.birthtime.toISOString().split('T')[0]
-        })
-      }
-    }
-
-    // Sort by created date (newest first)
-    skills.sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime())
-
-    res.json({
-      skills,
-      lastUpdated: new Date().toISOString()
     })
-  } catch (e) {
-    console.error('Failed to get skills:', e)
-    res.json({ skills: [], lastUpdated: new Date().toISOString() })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════
-// USAGE TRACKING
-// ═══════════════════════════════════════════════════════════
-
-const USAGE_FILE = join(DATA_DIR, 'usage.json')
-
-// Initialize usage file if not exists
-if (!existsSync(USAGE_FILE)) {
-  writeFileSync(USAGE_FILE, JSON.stringify({
-    daily: [],
-    totals: { tokensIn: 0, tokensOut: 0, sessions: 0, cronRuns: 0 },
-    lastUpdated: new Date().toISOString()
-  }, null, 2))
+    .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
 }
 
-// Get usage stats
-app.get('/api/usage', async (req, res) => {
-  try {
-    // Read local usage tracking
-    const usage = JSON.parse(readFileSync(USAGE_FILE, 'utf-8'))
-    
-    // Try to get cron job stats
-    let cronStats = { total: 0, successful: 0, failed: 0 }
+const normalizeCronStatus = (job: Record<string, unknown>): CronStatus => {
+  if (job.enabled === false) return 'disabled'
+
+  const state = (job.state ?? {}) as JsonObject
+  if (typeof state.runningAtMs === 'number') return 'running'
+
+  const lastStatus = String(state.lastStatus ?? state.lastRunStatus ?? '').toLowerCase()
+  if (['ok', 'success', 'completed'].includes(lastStatus)) return 'ok'
+  if (['error', 'failed', 'timeout'].includes(lastStatus)) return 'error'
+
+  return 'idle'
+}
+
+const readCronJobsFallback = (): Array<Record<string, unknown>> => {
+  const raw = readJsonFile<JsonObject>(CRON_JOBS_PATH, {})
+  const jobs = Array.isArray(raw.jobs) ? raw.jobs : []
+  return jobs.filter((job): job is Record<string, unknown> => Boolean(job && typeof job === 'object'))
+}
+
+const loadCronJobs = async () => {
+  const cliResult = await safeExec('openclaw cron list --json')
+  let jobs: Array<Record<string, unknown>> = []
+  let source: 'cli' | 'file' = 'cli'
+
+  if (cliResult.ok && cliResult.stdout.trim()) {
     try {
-      const cronRes = await fetch('http://localhost:18789/api/cron', {
-        headers: { 'Authorization': `Bearer ${process.env.OPENCLAW_TOKEN || ''}` }
-      })
-      if (cronRes.ok) {
-        const cronData = await cronRes.json()
-        const jobs = cronData.jobs || []
-        cronStats.total = jobs.length
-        cronStats.successful = jobs.filter((j: any) => j.state?.lastStatus === 'ok').length
-        cronStats.failed = jobs.filter((j: any) => j.state?.lastStatus === 'error').length
-      }
-    } catch (e) {
-      // Gateway not available, skip
+      const parsed = JSON.parse(cliResult.stdout) as JsonObject | Array<Record<string, unknown>>
+      jobs = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray((parsed as JsonObject).jobs)
+          ? (((parsed as JsonObject).jobs as Array<unknown>).filter((job): job is Record<string, unknown> => Boolean(job && typeof job === 'object')))
+          : []
+    } catch {
+      jobs = []
     }
-
-    // Calculate cost estimates (approximate)
-    const costs = {
-      opus: { input: 15, output: 75 }, // per million tokens
-      sonnet: { input: 3, output: 15 }
-    }
-    
-    const estimatedCost = (
-      (usage.totals.tokensIn / 1000000) * costs.sonnet.input +
-      (usage.totals.tokensOut / 1000000) * costs.sonnet.output
-    ).toFixed(4)
-
-    res.json({
-      ...usage,
-      cronStats,
-      estimatedCost: parseFloat(estimatedCost),
-      models: {
-        conversations: 'claude-opus-4-5-20251101',
-        cronJobs: 'claude-sonnet-4-5-20250929'
-      }
-    })
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to get usage' })
   }
-})
 
-// Log usage (called by agents after work)
-app.post('/api/usage/log', (req, res) => {
-  try {
-    const { tokensIn, tokensOut, type, description } = req.body
-    const usage = JSON.parse(readFileSync(USAGE_FILE, 'utf-8'))
-    
-    const today = new Date().toISOString().split('T')[0]
-    let dayEntry = usage.daily.find((d: any) => d.date === today)
-    
-    if (!dayEntry) {
-      dayEntry = { date: today, tokensIn: 0, tokensOut: 0, sessions: 0, cronRuns: 0, logs: [] }
-      usage.daily.push(dayEntry)
-    }
-    
-    dayEntry.tokensIn += tokensIn || 0
-    dayEntry.tokensOut += tokensOut || 0
-    if (type === 'cron') dayEntry.cronRuns++
-    if (type === 'session') dayEntry.sessions++
-    
-    dayEntry.logs.push({
-      time: new Date().toISOString(),
-      type,
-      description,
-      tokensIn,
-      tokensOut
-    })
-    
-    // Update totals
-    usage.totals.tokensIn += tokensIn || 0
-    usage.totals.tokensOut += tokensOut || 0
-    if (type === 'cron') usage.totals.cronRuns++
-    if (type === 'session') usage.totals.sessions++
-    
-    usage.lastUpdated = new Date().toISOString()
-    
-    // Keep only last 30 days
-    usage.daily = usage.daily.slice(-30)
-    
-    writeFileSync(USAGE_FILE, JSON.stringify(usage, null, 2))
-    res.json({ success: true })
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to log usage' })
+  if (jobs.length === 0) {
+    source = 'file'
+    jobs = readCronJobsFallback()
   }
-})
 
-// Catch-all route for SPA (production only)
-if (isProduction) {
-  app.get('*', (req, res) => {
-    res.sendFile(join(__dirname, '../dist/index.html'))
+  const mapped = jobs.map((job) => {
+    const state = (job.state ?? {}) as JsonObject
+    return {
+      id: String(job.id ?? ''),
+      agentId: String(job.agentId ?? 'main'),
+      name: String(job.name ?? job.id ?? 'Unnamed Job'),
+      enabled: job.enabled !== false,
+      schedule: job.schedule ?? null,
+      status: normalizeCronStatus(job),
+      lastRunAt: toIso(state.lastRunAtMs) ?? null,
+      nextRunAt: toIso(state.nextRunAtMs) ?? null,
+      lastDurationMs: typeof state.lastDurationMs === 'number' ? state.lastDurationMs : null,
+      lastError: typeof state.lastError === 'string' ? state.lastError : null
+    }
   })
+
+  return {
+    source,
+    jobs: mapped,
+    count: mapped.length
+  }
 }
+
+const loadAgentSeeds = (): AgentSeed[] => {
+  const fromPublic = readJsonFile<JsonObject>(PUBLIC_AGENTS_PATH, {})
+  const fromLocal = readJsonFile<JsonObject>(LOCAL_AGENTS_PATH, fromPublic)
+  const agents = Array.isArray(fromLocal.agents) ? fromLocal.agents : Array.isArray(fromPublic.agents) ? fromPublic.agents : []
+
+  return agents.filter((agent): agent is AgentSeed => Boolean(agent && typeof agent === 'object' && 'id' in agent))
+}
+
+const loadAgents = async () => {
+  const [cronPayload, activeSessions] = await Promise.all([loadCronJobs(), loadActiveSessions()])
+  const seeds = loadAgentSeeds()
+
+  const fallbackIds = Array.from(
+    new Set(cronPayload.jobs.map((job) => String(job.agentId ?? 'main')))
+  )
+
+  const resolvedSeeds =
+    seeds.length > 0
+      ? seeds
+      : fallbackIds.map((agentId) => ({
+          id: agentId,
+          agentId,
+          name: agentId === 'main' ? 'Main Agent' : agentId,
+          role: 'Automation Worker',
+          model: 'Unknown',
+          status: 'idle' as const,
+          uptimeHours: 0
+        }))
+
+  const agents = resolvedSeeds.map((seed, index) => {
+    const agentId = seed.agentId ?? seed.id
+    const jobs = cronPayload.jobs.filter((job) => job.agentId === agentId)
+    const runningJob = jobs.find((job) => job.status === 'running') ?? null
+    const latestJob = [...jobs]
+      .sort((a, b) => Date.parse(b.lastRunAt ?? '') - Date.parse(a.lastRunAt ?? ''))
+      .find(Boolean) ?? null
+    const latestTimestamp = latestJob?.lastRunAt ?? null
+    const latestRunMs = latestTimestamp ? Date.parse(latestTimestamp) : 0
+    const isFresh = latestRunMs > 0 && Date.now() - latestRunMs < 6 * 60 * 60 * 1000
+    const progress = runningJob
+      ? 72
+      : latestJob?.status === 'ok'
+        ? 100
+        : latestJob?.status === 'error'
+          ? 28
+          : 12
+
+    return {
+      id: seed.id,
+      agentId,
+      name: seed.name ?? seed.id,
+      role: seed.role ?? 'Automation Worker',
+      model: seed.model ?? 'Unknown',
+      uptimeHours: seed.uptimeHours ?? 0,
+      status: runningJob || seed.status === 'active' || isFresh ? 'active' : 'idle',
+      sessions: Math.max(1, Math.ceil(activeSessions / Math.max(1, resolvedSeeds.length)) + (index === 0 ? activeSessions % Math.max(1, resolvedSeeds.length) : 0)),
+      currentTask: runningJob?.name ?? latestJob?.name ?? 'Awaiting next scheduled task',
+      lastRunAt: latestTimestamp,
+      nextRunAt: runningJob?.nextRunAt ?? latestJob?.nextRunAt ?? null,
+      queueDepth: jobs.filter((job) => job.status === 'idle' || job.status === 'running').length,
+      progress,
+      lastStatus: runningJob?.status ?? latestJob?.status ?? 'idle'
+    }
+  })
+
+  return {
+    agents,
+    count: agents.length,
+    checkedAt: new Date().toISOString()
+  }
+}
+
+const loadDiskUsage = async () => {
+  const result = await safeExec(`df -k "${WORKSPACE_PATH}"`)
+  const lines = result.stdout.trim().split('\n')
+  const rawLine = lines[lines.length - 1] ?? ''
+  const parts = rawLine.trim().split(/\s+/)
+
+  if (parts.length < 5) {
+    return {
+      usedPercent: 0,
+      usedGb: 0,
+      totalGb: 0
+    }
+  }
+
+  const totalKb = Number(parts[1]) || 0
+  const usedKb = Number(parts[2]) || 0
+  const usedPercent = Number((parts[4] ?? '0').replace('%', '')) || 0
+
+  return {
+    usedPercent,
+    usedGb: Math.round((usedKb / 1024 / 1024) * 10) / 10,
+    totalGb: Math.round((totalKb / 1024 / 1024) * 10) / 10
+  }
+}
+
+const loadActiveSessions = async (): Promise<number> => {
+  const result = await safeExec('openclaw sessions list --json')
+  if (!result.ok || !result.stdout.trim()) return 0
+
+  try {
+    const parsed = JSON.parse(result.stdout) as JsonObject | Array<unknown>
+    const sessions = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as JsonObject).sessions)
+        ? ((parsed as JsonObject).sessions as Array<unknown>)
+        : []
+    return sessions.length
+  } catch {
+    return 0
+  }
+}
+
+const countDraftFiles = (): number => {
+  if (!existsSync(DRAFTS_PATH)) return 0
+
+  return readdirSync(DRAFTS_PATH)
+    .map((fileName) => join(DRAFTS_PATH, fileName))
+    .filter((filePath) => {
+      try {
+        return statSync(filePath).isFile()
+      } catch {
+        return false
+      }
+    }).length
+}
+
+const loadRecentActivity = (): Array<{ source: string; timestamp: string | null; line: string }> => {
+  if (!existsSync(OPENCLAW_LOGS_PATH)) return []
+
+  const files = readdirSync(OPENCLAW_LOGS_PATH)
+    .filter((fileName) => /\.(log|jsonl)$/i.test(fileName))
+    .map((fileName) => {
+      const filePath = join(OPENCLAW_LOGS_PATH, fileName)
+      return {
+        fileName,
+        filePath,
+        mtimeMs: statSync(filePath).mtimeMs
+      }
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+
+  const entries: Array<{ source: string; timestamp: string | null; line: string }> = []
+
+  for (const file of files) {
+    const lines = readFileSync(file.filePath, 'utf-8')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(-50)
+
+    for (const line of lines) {
+      const match = line.match(/^(\d{4}-\d{2}-\d{2}T\S+)/)
+      entries.push({
+        source: file.fileName,
+        timestamp: match ? toIso(match[1]) : null,
+        line
+      })
+    }
+
+    if (entries.length >= 75) break
+  }
+
+  return entries
+    .sort((a, b) => {
+      const left = a.timestamp ? Date.parse(a.timestamp) : 0
+      const right = b.timestamp ? Date.parse(b.timestamp) : 0
+      return left - right
+    })
+    .slice(-50)
+}
+
+app.get('/api/status', async (_req, res) => {
+  const [gateway, ollama, whatsappProcess] = await Promise.all([
+    fetchBoolean('http://127.0.0.1:18789'),
+    fetchBoolean('http://localhost:11434/api/tags'),
+    safeExec('pgrep -if openclaw')
+  ])
+
+  res.json({
+    gateway,
+    whatsapp: whatsappProcess.ok && Boolean(whatsappProcess.stdout.trim()),
+    ollama,
+    checkedAt: new Date().toISOString()
+  })
+})
+
+app.get('/api/crons', async (_req, res) => {
+  const payload = await loadCronJobs()
+  res.json({
+    ...payload,
+    checkedAt: new Date().toISOString()
+  })
+})
+
+app.get('/api/cron-status', async (_req, res) => {
+  const payload = await loadCronJobs()
+  res.json({
+    ...payload,
+    checkedAt: new Date().toISOString()
+  })
+})
+
+app.get('/api/agents', async (_req, res) => {
+  const payload = await loadAgents()
+  res.json(payload)
+})
+
+app.get('/api/revenue', (_req, res) => {
+  const payments = loadPayments()
+  const today = startOfToday().getTime()
+  const week = startOfWeek().getTime()
+  const month = startOfMonth().getTime()
+
+  let todayTotal = 0
+  let weekTotal = 0
+  let monthTotal = 0
+
+  const normalizedPayments = payments
+    .map((payment) => {
+      const amount = Number(payment.amount ?? 0) || 0
+      const timestamp = toIso(payment.timestamp)
+      const businessName = String(payment.businessName ?? payment.email ?? 'Unknown')
+      return { amount, timestamp, businessName }
+    })
+    .filter((payment) => payment.timestamp !== null)
+    .sort((a, b) => Date.parse((b.timestamp as string)) - Date.parse((a.timestamp as string)))
+
+  for (const payment of normalizedPayments) {
+    const time = Date.parse(payment.timestamp as string)
+    if (time >= today) todayTotal += payment.amount
+    if (time >= week) weekTotal += payment.amount
+    if (time >= month) monthTotal += payment.amount
+  }
+
+  res.json({
+    today: todayTotal,
+    week: weekTotal,
+    month: monthTotal,
+    payments: normalizedPayments.slice(0, 5),
+    totalCount: normalizedPayments.length,
+    sourcePath: PAYMENTS_PATH
+  })
+})
+
+app.get('/api/audits', (_req, res) => {
+  const audits = loadAuditSummaries()
+  const today = startOfToday().getTime()
+
+  res.json({
+    total: audits.length,
+    today: audits.filter((audit) => Date.parse(audit.timestamp) >= today).length,
+    recent: audits.slice(0, 5),
+    sourcePath: AUDITS_PATH
+  })
+})
+
+app.get('/api/leads', (_req, res) => {
+  const leads = loadLeads()
+    .map((lead) => ({
+      name: String((lead.name ?? lead.fullName ?? lead.businessName ?? lead.email ?? 'Lead') as string),
+      email: String((lead.email ?? '') as string),
+      source: String((lead.source ?? lead.channel ?? 'capture') as string),
+      createdAt: toIso(lead.createdAt ?? lead.timestamp) ?? null
+    }))
+    .sort((a, b) => {
+      const left = a.createdAt ? Date.parse(a.createdAt) : 0
+      const right = b.createdAt ? Date.parse(b.createdAt) : 0
+      return right - left
+    })
+
+  res.json({
+    leads,
+    count: leads.length,
+    sourcePath: LEADS_PATH
+  })
+})
+
+app.get('/api/system', async (_req, res) => {
+  const [disk, activeSessions] = await Promise.all([
+    loadDiskUsage(),
+    loadActiveSessions()
+  ])
+
+  const totalMem = os.totalmem()
+  const freeMem = os.freemem()
+  const usedMem = totalMem - freeMem
+  const cpuCores = os.cpus().length || 1
+  const loadAvg = os.loadavg()
+  const cpuUsedPercent = Math.max(0, Math.min(100, Math.round((loadAvg[0] / cpuCores) * 100)))
+  const uptimeSeconds = Math.round(os.uptime())
+
+  res.json({
+    cpu: {
+      usedPercent: cpuUsedPercent,
+      loadAvg: loadAvg.map((value) => Math.round(value * 100) / 100),
+      cores: cpuCores
+    },
+    memory: {
+      usedPercent: Math.round((usedMem / totalMem) * 100),
+      usedGb: formatBytes(usedMem),
+      totalGb: formatBytes(totalMem)
+    },
+    disk,
+    uptime: {
+      seconds: uptimeSeconds,
+      text: formatUptime(uptimeSeconds)
+    },
+    activeSessions,
+    draftsPending: countDraftFiles(),
+    workspacePath: WORKSPACE_PATH,
+    geoAuditPath: GEO_AUDIT_PATH,
+    geoAuditDataPath: GEO_AUDIT_DATA_PATH,
+    checkedAt: new Date().toISOString()
+  })
+})
+
+app.get('/api/activity', (_req, res) => {
+  const events = loadRecentActivity()
+  res.json({
+    events,
+    count: events.length,
+    sourcePath: OPENCLAW_LOGS_PATH
+  })
+})
+
+app.get('*', (_req, res) => {
+  if (!existsSync(join(distPath, 'index.html'))) {
+    res.status(404).json({ error: 'Frontend build not found' })
+    return
+  }
+
+  res.sendFile(join(distPath, 'index.html'))
+})
 
 app.listen(PORT, () => {
-  console.log(`🦞 Mission Control ${isProduction ? '(production)' : '(dev)'} running on http://localhost:${PORT}`)
+  console.log(`Mission Control listening on http://localhost:${PORT}`)
 })
