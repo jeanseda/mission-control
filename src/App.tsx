@@ -65,6 +65,25 @@ type CronsData = {
   source: 'cli' | 'file'
 }
 
+type Agent = {
+  id: string
+  name: string
+  model: string
+  status: 'active' | 'scheduled' | 'idle'
+  cronJobs: number
+  currentTask: string
+  lastRunAt: string | null
+  nextRunAt: string | null
+  models: string[]
+  workspaces: string[]
+}
+
+type AgentsData = {
+  agents: Agent[]
+  count: number
+  checkedAt?: string
+}
+
 type SystemData = {
   cpu: {
     usedPercent: number
@@ -249,6 +268,7 @@ function App() {
   const [leads, setLeads] = useState<LeadsData>({ leads: [], count: 0 })
   const [audits, setAudits] = useState<AuditsData>({ total: 0, today: 0, recent: [] })
   const [crons, setCrons] = useState<CronsData>({ jobs: [], count: 0, source: 'file' })
+  const [agents, setAgents] = useState<AgentsData>({ agents: [], count: 0 })
   const [system, setSystem] = useState<SystemData>({
     cpu: { usedPercent: 0, loadAvg: [0, 0, 0], cores: 0 },
     memory: { usedPercent: 0, usedGb: 0, totalGb: 0 },
@@ -269,12 +289,13 @@ function App() {
 
     const load = async () => {
       try {
-        const [nextStatus, nextRevenue, nextLeads, nextAudits, nextCrons, nextSystem, nextActivity] = await Promise.all([
+        const [nextStatus, nextRevenue, nextLeads, nextAudits, nextCrons, nextAgents, nextSystem, nextActivity] = await Promise.all([
           fetchJson<StatusData>('/api/status'),
           fetchJson<RevenueData>('/api/revenue'),
           fetchJson<LeadsData>('/api/leads'),
           fetchJson<AuditsData>('/api/audits'),
           fetchJson<CronsData>('/api/crons'),
+          fetchJson<AgentsData>('/api/agents'),
           fetchJson<SystemData>('/api/system'),
           fetchJson<ActivityData>('/api/activity')
         ])
@@ -286,6 +307,7 @@ function App() {
         setLeads(nextLeads)
         setAudits(nextAudits)
         setCrons(nextCrons)
+        setAgents(nextAgents)
         setSystem(nextSystem)
         setActivity(nextActivity)
         setError(null)
@@ -330,6 +352,7 @@ function App() {
 
   const runningCrons = crons.jobs.filter((job) => job.status === 'running').length
   const healthyServices = statusSummary.filter((item) => item.online).length
+  const activeAgents = agents.agents.filter((agent) => agent.status === 'active').length
 
   const overviewContent = (
     <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
@@ -495,61 +518,104 @@ function App() {
   )
 
   const agentsContent = (
-    <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-      <SectionCard title="Fleet Health" meta={`${healthyServices}/3 systems online`}>
-        <div className="grid gap-3 md:grid-cols-3">
-          {statusSummary.map((item) => (
-            <div key={item.label} className="rounded-3xl border border-white/5 bg-white/[0.03] px-4 py-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/45">{item.label}</p>
-                <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(item.online)}`} />
+    <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <SectionCard title="Fleet Health" meta={`${activeAgents}/${agents.count || 0} active`}>
+          <div className="grid gap-3 md:grid-cols-3">
+            {statusSummary.map((item) => (
+              <div key={item.label} className="rounded-3xl border border-white/5 bg-white/[0.03] px-4 py-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/45">{item.label}</p>
+                  <span className={`h-2.5 w-2.5 rounded-full ${statusDotClass(item.online)}`} />
+                </div>
+                <p className="mt-4 text-lg font-medium text-white">{item.online ? 'Healthy' : 'Attention'}</p>
+                <p className="mt-1 text-xs text-white/45">{item.online ? 'Responding to checks' : 'Not responding to checks'}</p>
               </div>
-              <p className="mt-4 text-lg font-medium text-white">{item.online ? 'Healthy' : 'Attention'}</p>
-              <p className="mt-1 text-xs text-white/45">{item.online ? 'Responding to checks' : 'Not responding to checks'}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <StatPill label="Active Sessions" value={String(system.activeSessions)} detail="OpenClaw runtime" />
-          <StatPill label="Drafts Pending" value={String(system.draftsPending)} detail="Awaiting review" />
-        </div>
-      </SectionCard>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <StatPill label="Active Sessions" value={String(system.activeSessions)} detail="OpenClaw runtime" />
+            <StatPill label="Drafts Pending" value={String(system.draftsPending)} detail="Awaiting review" />
+          </div>
+        </SectionCard>
 
-      <SectionCard title="Runtime Envelope" meta={loading ? 'Syncing' : liveTime}>
-        <div className="space-y-4">
-          <div>
-            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
-              <span>Memory</span>
-              <span className="font-mono text-white">{system.memory.usedPercent}%</span>
+        <SectionCard title="Runtime Envelope" meta={loading ? 'Syncing' : liveTime}>
+          <div className="space-y-4">
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
+                <span>Memory</span>
+                <span className="font-mono text-white">{system.memory.usedPercent}%</span>
+              </div>
+              <div className="progress-bar h-2">
+                <div className="progress-fill" style={{ width: `${system.memory.usedPercent}%` }} />
+              </div>
             </div>
-            <div className="progress-bar h-2">
-              <div className="progress-fill" style={{ width: `${system.memory.usedPercent}%` }} />
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
+                <span>Disk</span>
+                <span className="font-mono text-white">{system.disk.usedPercent}%</span>
+              </div>
+              <div className="progress-bar h-2">
+                <div className="progress-fill" style={{ width: `${system.disk.usedPercent}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
+                <span>CPU</span>
+                <span className="font-mono text-white">{system.cpu.usedPercent}%</span>
+              </div>
+              <div className="progress-bar h-2">
+                <div className="progress-fill" style={{ width: `${system.cpu.usedPercent}%` }} />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/5 bg-black/20 px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/45">Load Average</p>
+              <p className="mt-2 font-mono text-xl text-white">{system.cpu.loadAvg.join(' / ')}</p>
+              <p className="mt-1 text-xs text-white/45">{system.cpu.cores} logical cores</p>
             </div>
           </div>
-          <div>
-            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
-              <span>Disk</span>
-              <span className="font-mono text-white">{system.disk.usedPercent}%</span>
-            </div>
-            <div className="progress-bar h-2">
-              <div className="progress-fill" style={{ width: `${system.disk.usedPercent}%` }} />
-            </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard title="Agent Roster" meta={`${agents.count} detected`}>
+        {agents.agents.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-8 text-center text-sm text-white/45">
+            No agents detected in the OpenClaw workspace.
           </div>
-          <div>
-            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/45">
-              <span>CPU</span>
-              <span className="font-mono text-white">{system.cpu.usedPercent}%</span>
-            </div>
-            <div className="progress-bar h-2">
-              <div className="progress-fill" style={{ width: `${system.cpu.usedPercent}%` }} />
-            </div>
+        ) : (
+          <div className="grid gap-3 xl:grid-cols-3">
+            {agents.agents.map((agent) => (
+              <div key={agent.id} className="rounded-3xl border border-white/5 bg-white/[0.03] px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white">{agent.name}</p>
+                    <p className="mt-1 text-xs text-white/45">{agent.workspaces.join(' • ')}</p>
+                  </div>
+                  <span
+                    className={`badge ${
+                      agent.status === 'active'
+                        ? 'badge-success'
+                        : agent.status === 'scheduled'
+                          ? 'badge-info'
+                          : 'badge-neutral'
+                    }`}
+                  >
+                    {agent.status}
+                  </span>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="badge badge-neutral">{agent.model}</span>
+                  <span className="badge badge-neutral">{agent.cronJobs} cron{agent.cronJobs === 1 ? '' : 's'}</span>
+                </div>
+                <p className="mt-4 text-sm text-white">{agent.currentTask}</p>
+                <div className="mt-4 space-y-1 text-[11px] uppercase tracking-[0.14em] text-white/35">
+                  <p>Last {relativeTime(agent.lastRunAt)}</p>
+                  <p>Next {relativeTime(agent.nextRunAt)}</p>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="rounded-2xl border border-white/5 bg-black/20 px-4 py-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-white/45">Load Average</p>
-            <p className="mt-2 font-mono text-xl text-white">{system.cpu.loadAvg.join(' / ')}</p>
-            <p className="mt-1 text-xs text-white/45">{system.cpu.cores} logical cores</p>
-          </div>
-        </div>
+        )}
       </SectionCard>
     </div>
   )
@@ -707,7 +773,7 @@ function App() {
                 <StatPill label="Revenue Today" value={currency(revenue.today)} detail={loading ? 'Syncing...' : 'Gross collected'} />
                 <StatPill label="Leads" value={String(leads.count)} detail="Captured contacts" />
                 <StatPill label="Audits Today" value={String(audits.today)} detail="New evaluations" />
-                <StatPill label="Active Sessions" value={String(system.activeSessions)} detail="Runtime sessions" />
+                <StatPill label="Agents" value={String(agents.count)} detail={`${activeAgents} active`} />
                 <StatPill label="Crons Running" value={String(runningCrons)} detail={`${crons.count} scheduled`} />
               </div>
             </section>

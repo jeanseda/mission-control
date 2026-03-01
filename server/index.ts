@@ -13,6 +13,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 const app = express()
+const api = express.Router()
 const PORT = 3002
 
 const WORKSPACE_PATH = '/Users/jeanseda/.openclaw/workspace'
@@ -22,11 +23,16 @@ const PAYMENTS_PATH = '/Users/jeanseda/.openclaw/workspace/geo-audit/data/paymen
 const LEADS_PATH = '/Users/jeanseda/.openclaw/workspace/geo-audit/data/leads.json'
 const AUDITS_PATH = '/Users/jeanseda/.openclaw/workspace/geo-audit/data/cache/ai-audits'
 const DRAFTS_PATH = '/Users/jeanseda/.openclaw/workspace/drafts'
-const OPENCLAW_HOME = '/Users/jeanseda/.openclaw'
 const OPENCLAW_LOGS_PATH = '/Users/jeanseda/.openclaw/logs'
 const CRON_JOBS_PATH = '/Users/jeanseda/.openclaw/cron/jobs.json'
-const LOCAL_AGENTS_PATH = join(__dirname, '../data/agents.json')
-const PUBLIC_AGENTS_PATH = join(__dirname, '../public/data/agents.json')
+const BUSINESS_METRICS_PATH = join(__dirname, '../data/business-metrics.json')
+const WORKSPACE_AGENTS_PATH = join(WORKSPACE_PATH, 'agents')
+const SALES_AGENT_DB_PATH = join(WORKSPACE_PATH, 'agents/sales-agent/data/leads.db')
+const ARCHIVED_SALES_AGENT_DB_PATH = join(WORKSPACE_PATH, 'archive/sales-agent/data/leads.db')
+const SALES_AGENT_DATA_PATHS = [
+  join(WORKSPACE_PATH, 'agents/sales-agent/data'),
+  join(WORKSPACE_PATH, 'archive/sales-agent/data')
+]
 
 app.use(cors())
 app.use(express.json())
@@ -47,14 +53,19 @@ type AuditSummary = {
 
 type CronStatus = 'ok' | 'error' | 'running' | 'idle' | 'disabled'
 
-type AgentSeed = {
+type AgentStatus = 'active' | 'scheduled' | 'idle'
+
+type AgentSummary = {
   id: string
-  agentId?: string
-  name?: string
-  role?: string
-  model?: string
-  status?: 'active' | 'idle'
-  uptimeHours?: number
+  name: string
+  model: string
+  status: AgentStatus
+  cronJobs: number
+  currentTask: string
+  lastRunAt: string | null
+  nextRunAt: string | null
+  models: string[]
+  workspaces: string[]
 }
 
 const readJsonFile = <T>(filePath: string, fallback: T): T => {
@@ -152,6 +163,10 @@ const loadPayments = (): Array<Record<string, unknown>> => {
   return payments.filter((payment): payment is Record<string, unknown> => Boolean(payment && typeof payment === 'object'))
 }
 
+const loadBusinessMetrics = (): JsonObject => {
+  return readJsonFile<JsonObject>(BUSINESS_METRICS_PATH, {})
+}
+
 const loadLeads = (): Array<Record<string, unknown>> => {
   const raw = readJsonFile<JsonObject>(LEADS_PATH, {})
   const leads = Array.isArray(raw.leads) ? raw.leads : []
@@ -238,11 +253,13 @@ const loadCronJobs = async () => {
 
   const mapped = jobs.map((job) => {
     const state = (job.state ?? {}) as JsonObject
+    const payload = (job.payload ?? {}) as JsonObject
     return {
       id: String(job.id ?? ''),
       agentId: String(job.agentId ?? 'main'),
       name: String(job.name ?? job.id ?? 'Unnamed Job'),
       enabled: job.enabled !== false,
+      model: typeof payload.model === 'string' ? payload.model : null,
       schedule: job.schedule ?? null,
       status: normalizeCronStatus(job),
       lastRunAt: toIso(state.lastRunAtMs) ?? null,
@@ -259,74 +276,376 @@ const loadCronJobs = async () => {
   }
 }
 
-const loadAgentSeeds = (): AgentSeed[] => {
-  const fromPublic = readJsonFile<JsonObject>(PUBLIC_AGENTS_PATH, {})
-  const fromLocal = readJsonFile<JsonObject>(LOCAL_AGENTS_PATH, fromPublic)
-  const agents = Array.isArray(fromLocal.agents) ? fromLocal.agents : Array.isArray(fromPublic.agents) ? fromPublic.agents : []
+const normalizeModelName = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null
 
-  return agents.filter((agent): agent is AgentSeed => Boolean(agent && typeof agent === 'object' && 'id' in agent))
+  const normalized = value.trim()
+  if (!normalized) return null
+
+  const modelId = normalized.split('/').pop() ?? normalized
+  const lower = modelId.toLowerCase()
+
+  if (lower.includes('gemini') && lower.includes('flash')) return 'gemini-flash'
+  if (lower.includes('opus')) return 'opus'
+  if (lower.includes('qwen')) return 'qwen'
+
+  return modelId
+}
+
+const formatWorkspaceName = (value: string): string => {
+  return value
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+const loadWorkspaceAgents = (): string[] => {
+  if (!existsSync(WORKSPACE_AGENTS_PATH)) return []
+
+  return readdirSync(WORKSPACE_AGENTS_PATH)
+    .filter((entry) => {
+      const entryPath = join(WORKSPACE_AGENTS_PATH, entry)
+      try {
+        return statSync(entryPath).isDirectory()
+      } catch {
+        return false
+      }
+    })
+    .sort()
+}
+
+const isSyntheticPayment = (payment: Record<string, unknown>): boolean => {
+  const businessName = String(payment.businessName ?? '').toLowerCase()
+  const email = String(payment.email ?? '').toLowerCase()
+  const sessionId = String(payment.sessionId ?? '').toLowerCase()
+
+  return businessName.includes('acme co') || email.endsWith('.example') || sessionId.startsWith('cs_test_')
+}
+
+const loadRevenueEntries = () => {
+  const metrics = loadBusinessMetrics()
+  const history = Array.isArray(metrics.history) ? metrics.history : []
+
+  const paymentEntries = loadPayments()
+    .filter((payment) => !isSyntheticPayment(payment))
+    .map((payment) => ({
+      amount: Number(payment.amount ?? 0) || 0,
+      timestamp: toIso(payment.timestamp),
+      businessName: String(payment.businessName ?? payment.email ?? 'Unknown')
+    }))
+
+  const historyEntries = history
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object'))
+    .map((entry) => ({
+      amount: Number(entry.amount ?? entry.value ?? entry.revenue ?? entry.total ?? 0) || 0,
+      timestamp: toIso(entry.timestamp ?? entry.date ?? entry.createdAt),
+      businessName: String(entry.businessName ?? entry.client ?? entry.name ?? 'Recorded revenue')
+    }))
+
+  return [...paymentEntries, ...historyEntries]
+    .filter((entry) => entry.timestamp !== null && entry.amount > 0)
+    .sort((a, b) => Date.parse(b.timestamp as string) - Date.parse(a.timestamp as string))
+}
+
+const loadRevenuePayload = () => {
+  const metrics = loadBusinessMetrics()
+  const goal = (metrics.goal ?? {}) as JsonObject
+  const payments = loadRevenueEntries()
+  const today = startOfToday().getTime()
+  const week = startOfWeek().getTime()
+  const month = startOfMonth().getTime()
+
+  let todayTotal = 0
+  let weekTotal = 0
+  let monthTotal = 0
+
+  for (const payment of payments) {
+    const time = Date.parse(payment.timestamp as string)
+    if (time >= today) todayTotal += payment.amount
+    if (time >= week) weekTotal += payment.amount
+    if (time >= month) monthTotal += payment.amount
+  }
+
+  return {
+    today: todayTotal,
+    week: weekTotal,
+    month: payments.length > 0 ? monthTotal : Number(goal.total ?? 0) || 0,
+    payments: payments.slice(0, 5),
+    totalCount: payments.length,
+    sourcePath: payments.length > 0 ? `${PAYMENTS_PATH}, ${BUSINESS_METRICS_PATH}` : BUSINESS_METRICS_PATH
+  }
+}
+
+type BetterSqlite3Ctor = new (path: string, options?: Record<string, unknown>) => any
+
+const loadBetterSqlite3Module = async (): Promise<BetterSqlite3Ctor | null> => {
+  try {
+    const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>
+    const imported = await dynamicImport('better-sqlite3')
+    const resolved = imported?.default ?? imported
+    return typeof resolved === 'function' ? (resolved as BetterSqlite3Ctor) : null
+  } catch {
+    return null
+  }
+}
+
+const readSalesAgentLeadsWithBetterSqlite = async (dbPath: string): Promise<Array<Record<string, unknown>> | null> => {
+  const Database = await loadBetterSqlite3Module()
+  if (!Database) return null
+
+  let db: any = null
+
+  try {
+    db = new Database(dbPath, { readonly: true, fileMustExist: true })
+    const rows = db
+      .prepare(`
+        SELECT
+          business_name,
+          website,
+          source,
+          status,
+          contact_email,
+          created_at,
+          updated_at,
+          lead_score
+        FROM leads
+        ORDER BY datetime(COALESCE(updated_at, created_at)) DESC
+      `)
+      .all()
+
+    return Array.isArray(rows)
+      ? rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'))
+      : []
+  } catch {
+    return null
+  } finally {
+    try {
+      db?.close?.()
+    } catch {
+      // Ignore close failures for read-only checks.
+    }
+  }
+}
+
+const readSalesAgentLeadsWithSqliteCli = async (dbPath: string): Promise<Array<Record<string, unknown>>> => {
+  const escapedPath = dbPath.replace(/"/g, '\\"')
+  const query = [
+    'SELECT',
+    'business_name,',
+    'website,',
+    'source,',
+    'status,',
+    'contact_email,',
+    'created_at,',
+    'updated_at,',
+    'lead_score',
+    'FROM leads',
+    'ORDER BY datetime(COALESCE(updated_at, created_at)) DESC'
+  ].join(' ')
+  const escapedQuery = query.replace(/"/g, '\\"')
+  const result = await safeExec(`sqlite3 -json "${escapedPath}" "${escapedQuery}"`)
+
+  if (!result.ok || !result.stdout.trim()) return []
+
+  try {
+    const parsed = JSON.parse(result.stdout) as Array<unknown>
+    return parsed.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object'))
+  } catch {
+    return []
+  }
+}
+
+const loadSalesAgentDbLeads = async (): Promise<Array<Record<string, unknown>>> => {
+  const dbPath = [SALES_AGENT_DB_PATH, ARCHIVED_SALES_AGENT_DB_PATH].find((path) => existsSync(path))
+  if (!dbPath) return []
+
+  const rows = await readSalesAgentLeadsWithBetterSqlite(dbPath)
+  if (rows) return rows
+
+  return readSalesAgentLeadsWithSqliteCli(dbPath)
+}
+
+const loadProspectBatchLeads = (): Array<{ record: Record<string, unknown>; filePath: string }> => {
+  const leads: Array<{ record: Record<string, unknown>; filePath: string }> = []
+
+  for (const dataPath of SALES_AGENT_DATA_PATHS) {
+    if (!existsSync(dataPath)) continue
+
+    const files = readdirSync(dataPath)
+      .filter((fileName) => /^prospect-.*\.json$/i.test(fileName))
+      .map((fileName) => join(dataPath, fileName))
+      .sort((a, b) => {
+        try {
+          return statSync(b).mtimeMs - statSync(a).mtimeMs
+        } catch {
+          return 0
+        }
+      })
+
+    for (const filePath of files) {
+      const raw = readJsonFile<Array<unknown>>(filePath, [])
+      for (const entry of raw) {
+        if (entry && typeof entry === 'object') {
+          leads.push({ record: entry as Record<string, unknown>, filePath })
+        }
+      }
+    }
+  }
+
+  return leads
+}
+
+const loadLeadsPayload = async () => {
+  const geoAuditLeads = loadLeads().map((lead) => ({
+    name: String(lead.name ?? lead.fullName ?? lead.businessName ?? lead.email ?? 'Lead'),
+    email: String(lead.email ?? ''),
+    source: 'geo-audit',
+    createdAt: toIso(lead.createdAt ?? lead.timestamp) ?? null,
+    website: String(lead.website ?? lead.websiteUrl ?? '')
+  }))
+
+  const salesDbLeads = (await loadSalesAgentDbLeads()).map((lead) => ({
+    name: String(lead.business_name ?? lead.contact_name ?? lead.contact_email ?? 'Lead'),
+    email: String(lead.contact_email ?? ''),
+    source: 'sales-db',
+    createdAt: toIso(lead.updated_at ?? lead.created_at) ?? null,
+    website: String(lead.website ?? '')
+  }))
+
+  const prospectBatchLeads = loadProspectBatchLeads().map(({ record, filePath }) => ({
+    name: String(record.business_name ?? record.name ?? record.website ?? 'Lead'),
+    email: '',
+    source: 'sales-prospect',
+    createdAt: (() => {
+      try {
+        return statSync(filePath).mtime.toISOString()
+      } catch {
+        return null
+      }
+    })(),
+    website: String(record.website ?? '')
+  }))
+
+  const deduped = new Map<string, { name: string; email: string; source: string; createdAt: string | null }>()
+
+  for (const lead of [...salesDbLeads, ...geoAuditLeads, ...prospectBatchLeads]) {
+    const key = `${lead.email.toLowerCase()}|${lead.website.toLowerCase()}|${lead.name.toLowerCase()}`
+    if (!deduped.has(key)) {
+      deduped.set(key, {
+        name: lead.name,
+        email: lead.email,
+        source: lead.source,
+        createdAt: lead.createdAt
+      })
+    }
+  }
+
+  const leads = Array.from(deduped.values()).sort((a, b) => {
+    const left = a.createdAt ? Date.parse(a.createdAt) : 0
+    const right = b.createdAt ? Date.parse(b.createdAt) : 0
+    return right - left
+  })
+
+  return {
+    leads,
+    count: leads.length,
+    sourcePath: [LEADS_PATH, SALES_AGENT_DB_PATH, ARCHIVED_SALES_AGENT_DB_PATH].join(', ')
+  }
+}
+
+const buildAgentSummary = ({
+  id,
+  name,
+  jobs,
+  workspaces
+}: {
+  id: string
+  name: string
+  jobs: Array<Record<string, unknown>>
+  workspaces: string[]
+}): AgentSummary => {
+  const runningJob = jobs.find((job) => job.status === 'running') ?? null
+  const latestJob = [...jobs]
+    .sort((a, b) => Date.parse(String(b.lastRunAt ?? '')) - Date.parse(String(a.lastRunAt ?? '')))
+    .find(Boolean) ?? null
+  const models = Array.from(
+    new Set(
+      jobs
+        .map((job) => normalizeModelName(job.model))
+        .filter((model): model is string => Boolean(model))
+    )
+  )
+
+  return {
+    id,
+    name,
+    model: models[0] ?? 'unknown',
+    status: runningJob ? 'active' : jobs.length > 0 ? 'scheduled' : 'idle',
+    cronJobs: jobs.length,
+    currentTask: String(runningJob?.name ?? latestJob?.name ?? 'Awaiting scheduled work'),
+    lastRunAt: (latestJob?.lastRunAt as string | null | undefined) ?? null,
+    nextRunAt: (runningJob?.nextRunAt as string | null | undefined) ?? (latestJob?.nextRunAt as string | null | undefined) ?? null,
+    models,
+    workspaces
+  }
 }
 
 const loadAgents = async () => {
-  const [cronPayload, activeSessions] = await Promise.all([loadCronJobs(), loadActiveSessions()])
-  const seeds = loadAgentSeeds()
-
-  const fallbackIds = Array.from(
-    new Set(cronPayload.jobs.map((job) => String(job.agentId ?? 'main')))
-  )
-
-  const resolvedSeeds =
-    seeds.length > 0
-      ? seeds
-      : fallbackIds.map((agentId) => ({
-          id: agentId,
-          agentId,
-          name: agentId === 'main' ? 'Main Agent' : agentId,
-          role: 'Automation Worker',
-          model: 'Unknown',
-          status: 'idle' as const,
-          uptimeHours: 0
-        }))
-
-  const agents = resolvedSeeds.map((seed, index) => {
-    const agentId = seed.agentId ?? seed.id
-    const jobs = cronPayload.jobs.filter((job) => job.agentId === agentId)
-    const runningJob = jobs.find((job) => job.status === 'running') ?? null
-    const latestJob = [...jobs]
-      .sort((a, b) => Date.parse(b.lastRunAt ?? '') - Date.parse(a.lastRunAt ?? ''))
-      .find(Boolean) ?? null
-    const latestTimestamp = latestJob?.lastRunAt ?? null
-    const latestRunMs = latestTimestamp ? Date.parse(latestTimestamp) : 0
-    const isFresh = latestRunMs > 0 && Date.now() - latestRunMs < 6 * 60 * 60 * 1000
-    const progress = runningJob
-      ? 72
-      : latestJob?.status === 'ok'
-        ? 100
-        : latestJob?.status === 'error'
-          ? 28
-          : 12
-
-    return {
-      id: seed.id,
-      agentId,
-      name: seed.name ?? seed.id,
-      role: seed.role ?? 'Automation Worker',
-      model: seed.model ?? 'Unknown',
-      uptimeHours: seed.uptimeHours ?? 0,
-      status: runningJob || seed.status === 'active' || isFresh ? 'active' : 'idle',
-      sessions: Math.max(1, Math.ceil(activeSessions / Math.max(1, resolvedSeeds.length)) + (index === 0 ? activeSessions % Math.max(1, resolvedSeeds.length) : 0)),
-      currentTask: runningJob?.name ?? latestJob?.name ?? 'Awaiting next scheduled task',
-      lastRunAt: latestTimestamp,
-      nextRunAt: runningJob?.nextRunAt ?? latestJob?.nextRunAt ?? null,
-      queueDepth: jobs.filter((job) => job.status === 'idle' || job.status === 'running').length,
-      progress,
-      lastStatus: runningJob?.status ?? latestJob?.status ?? 'idle'
-    }
+  const cronPayload = await loadCronJobs()
+  const workspaceAgents = loadWorkspaceAgents()
+  const jobs = cronPayload.jobs.map((job) => ({
+    ...job,
+    name: String(job.name ?? ''),
+    status: String(job.status ?? ''),
+    model: typeof job.model === 'string' ? job.model : null
+  }))
+  const sprintJobs = jobs.filter((job) => job.name.toLowerCase().includes('sprint worker'))
+  const salesJobs = jobs.filter((job) => {
+    const name = job.name.toLowerCase()
+    return name.includes('sales') || name.includes('prospect')
   })
+  const maxJobs = jobs.filter((job) => !sprintJobs.includes(job) && !salesJobs.includes(job))
+
+  const agents: AgentSummary[] = []
+
+  if (maxJobs.length > 0) {
+    agents.push(
+      buildAgentSummary({
+        id: 'max',
+        name: 'Max (COO)',
+        jobs: maxJobs,
+        workspaces: workspaceAgents.length > 0 ? workspaceAgents.map(formatWorkspaceName) : ['Workspace']
+      })
+    )
+  }
+
+  if (sprintJobs.length > 0) {
+    agents.push(
+      buildAgentSummary({
+        id: 'sprint-worker',
+        name: 'Sprint Worker',
+        jobs: sprintJobs,
+        workspaces: ['Workspace']
+      })
+    )
+  }
+
+  if (salesJobs.length > 0 || SALES_AGENT_DATA_PATHS.some((path) => existsSync(path))) {
+    agents.push(
+      buildAgentSummary({
+        id: 'sales-agent',
+        name: 'Sales Agent',
+        jobs: salesJobs,
+        workspaces: ['Sales Agent']
+      })
+    )
+  }
 
   return {
     agents,
     count: agents.length,
+    workspaceAgents,
     checkedAt: new Date().toISOString()
   }
 }
@@ -357,7 +676,7 @@ const loadDiskUsage = async () => {
 }
 
 const loadActiveSessions = async (): Promise<number> => {
-  const result = await safeExec('openclaw sessions list --json')
+  const result = await safeExec('openclaw sessions --json')
   if (!result.ok || !result.stdout.trim()) return 0
 
   try {
@@ -432,7 +751,7 @@ const loadRecentActivity = (): Array<{ source: string; timestamp: string | null;
     .slice(-50)
 }
 
-app.get('/api/status', async (_req, res) => {
+api.get('/status', async (_req, res) => {
   const [gateway, ollama, whatsappProcess] = await Promise.all([
     fetchBoolean('http://127.0.0.1:18789'),
     fetchBoolean('http://localhost:11434/api/tags'),
@@ -447,7 +766,7 @@ app.get('/api/status', async (_req, res) => {
   })
 })
 
-app.get('/api/crons', async (_req, res) => {
+api.get('/crons', async (_req, res) => {
   const payload = await loadCronJobs()
   res.json({
     ...payload,
@@ -455,7 +774,7 @@ app.get('/api/crons', async (_req, res) => {
   })
 })
 
-app.get('/api/cron-status', async (_req, res) => {
+api.get('/cron-status', async (_req, res) => {
   const payload = await loadCronJobs()
   res.json({
     ...payload,
@@ -463,49 +782,16 @@ app.get('/api/cron-status', async (_req, res) => {
   })
 })
 
-app.get('/api/agents', async (_req, res) => {
+api.get('/agents', async (_req, res) => {
   const payload = await loadAgents()
   res.json(payload)
 })
 
-app.get('/api/revenue', (_req, res) => {
-  const payments = loadPayments()
-  const today = startOfToday().getTime()
-  const week = startOfWeek().getTime()
-  const month = startOfMonth().getTime()
-
-  let todayTotal = 0
-  let weekTotal = 0
-  let monthTotal = 0
-
-  const normalizedPayments = payments
-    .map((payment) => {
-      const amount = Number(payment.amount ?? 0) || 0
-      const timestamp = toIso(payment.timestamp)
-      const businessName = String(payment.businessName ?? payment.email ?? 'Unknown')
-      return { amount, timestamp, businessName }
-    })
-    .filter((payment) => payment.timestamp !== null)
-    .sort((a, b) => Date.parse((b.timestamp as string)) - Date.parse((a.timestamp as string)))
-
-  for (const payment of normalizedPayments) {
-    const time = Date.parse(payment.timestamp as string)
-    if (time >= today) todayTotal += payment.amount
-    if (time >= week) weekTotal += payment.amount
-    if (time >= month) monthTotal += payment.amount
-  }
-
-  res.json({
-    today: todayTotal,
-    week: weekTotal,
-    month: monthTotal,
-    payments: normalizedPayments.slice(0, 5),
-    totalCount: normalizedPayments.length,
-    sourcePath: PAYMENTS_PATH
-  })
+api.get('/revenue', (_req, res) => {
+  res.json(loadRevenuePayload())
 })
 
-app.get('/api/audits', (_req, res) => {
+api.get('/audits', (_req, res) => {
   const audits = loadAuditSummaries()
   const today = startOfToday().getTime()
 
@@ -517,28 +803,11 @@ app.get('/api/audits', (_req, res) => {
   })
 })
 
-app.get('/api/leads', (_req, res) => {
-  const leads = loadLeads()
-    .map((lead) => ({
-      name: String((lead.name ?? lead.fullName ?? lead.businessName ?? lead.email ?? 'Lead') as string),
-      email: String((lead.email ?? '') as string),
-      source: String((lead.source ?? lead.channel ?? 'capture') as string),
-      createdAt: toIso(lead.createdAt ?? lead.timestamp) ?? null
-    }))
-    .sort((a, b) => {
-      const left = a.createdAt ? Date.parse(a.createdAt) : 0
-      const right = b.createdAt ? Date.parse(b.createdAt) : 0
-      return right - left
-    })
-
-  res.json({
-    leads,
-    count: leads.length,
-    sourcePath: LEADS_PATH
-  })
+api.get('/leads', async (_req, res) => {
+  res.json(await loadLeadsPayload())
 })
 
-app.get('/api/system', async (_req, res) => {
+api.get('/system', async (_req, res) => {
   const [disk, activeSessions] = await Promise.all([
     loadDiskUsage(),
     loadActiveSessions()
@@ -577,7 +846,7 @@ app.get('/api/system', async (_req, res) => {
   })
 })
 
-app.get('/api/activity', (_req, res) => {
+api.get('/activity', (_req, res) => {
   const events = loadRecentActivity()
   res.json({
     events,
@@ -585,6 +854,8 @@ app.get('/api/activity', (_req, res) => {
     sourcePath: OPENCLAW_LOGS_PATH
   })
 })
+
+app.use('/api', api)
 
 app.get('*', (_req, res) => {
   if (!existsSync(join(distPath, 'index.html'))) {
